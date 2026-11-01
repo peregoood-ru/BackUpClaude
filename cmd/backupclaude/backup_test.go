@@ -69,6 +69,10 @@ func fakeBackup(args []string, dir, mode string) {
 		fmt.Fprintln(os.Stderr, `{"message_type":"error","error":{"message":"locked"},"during":"archival","item":"`+jsonEscaped(os.Getenv(envLockedFile))+`"}`)
 		fmt.Println(fakeSummary)
 		os.Exit(3)
+	case "metadata":
+		fmt.Fprintln(os.Stderr, `{"message_type":"error","error":{"message":"incomplete metadata for x: get EA failed"},"during":"archival","item":"x"}`)
+		fmt.Println(fakeSummary)
+		os.Exit(3)
 	case "fails":
 		fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":1,"message":"disk is on fire"}`)
 		os.Exit(1)
@@ -270,6 +274,21 @@ func TestAnyOtherUnreadableFileIsAFailure(t *testing.T) {
 	}
 	text := w.run("backup", "--profile", profile.Claude)
 	if !strings.Contains(text.stdout, "NOT SAVED") || !strings.Contains(text.stdout, "a.jsonl") {
+		t.Errorf("%+v", text)
+	}
+}
+
+func TestFilesSavedWithoutAttributesAreNotAFailure(t *testing.T) {
+	w := newBackupWorld(t, "metadata")
+	r := w.run("backup", "--profile", profile.Claude, "--json")
+	if r.code != 0 {
+		t.Fatalf("%+v", r)
+	}
+	item := w.report(t, r).Profiles[0]
+	if item.Status != backupOK || len(item.MetadataFiles) != 1 || len(item.SkippedFiles) != 0 {
+		t.Fatalf("%+v", item)
+	}
+	if text := w.run("backup", "--profile", profile.Claude); !strings.Contains(text.stdout, "without some attributes") {
 		t.Errorf("%+v", text)
 	}
 }

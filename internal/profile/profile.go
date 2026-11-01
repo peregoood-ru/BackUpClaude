@@ -420,17 +420,21 @@ func (p *Plan) Options(excludeFile string, dryRun bool) engine.BackupOptions {
 	}
 }
 
-// SortSkipped splits files restic could not read into those the manifest allows
-// to be locked and the rest. The rest mean a real gap in the snapshot.
-func (p *Plan) SortSkipped(items []engine.ItemError) (locked, skipped []engine.ItemError) {
+// SortSkipped splits what restic reported into files the manifest allows to be
+// locked, files saved without some attributes, and the rest. The rest mean a real
+// gap in the snapshot.
+func (p *Plan) SortSkipped(items []engine.ItemError) (locked, metadata, skipped []engine.ItemError) {
 	for _, item := range items {
-		if p.lockedAllowed(item.Item) {
+		switch {
+		case item.MetadataOnly():
+			metadata = append(metadata, item)
+		case p.lockedAllowed(item.Item):
 			locked = append(locked, item)
-		} else {
+		default:
 			skipped = append(skipped, item)
 		}
 	}
-	return locked, skipped
+	return locked, metadata, skipped
 }
 
 func (p *Plan) lockedAllowed(path string) bool {

@@ -404,9 +404,23 @@ func TestLockedFilesAreSortedByTheManifest(t *testing.T) {
 	root := filepath.Join(home, filepath.FromSlash(fakehome.ClassicRoot))
 	allowed := filepath.Join(root, "Local Storage", "leveldb", "LOCK")
 	gap := filepath.Join(home, ".claude", "projects", "x", "a.jsonl")
-	locked, skipped := plan.SortSkipped([]engine.ItemError{{Item: allowed}, {Item: gap}})
-	if len(locked) != 1 || locked[0].Item != allowed || len(skipped) != 1 || skipped[0].Item != gap {
-		t.Errorf("locked=%+v skipped=%+v", locked, skipped)
+	attribute := engine.ItemError{Item: "x", Message: "incomplete metadata for x: get EA failed"}
+	locked, metadata, skipped := plan.SortSkipped([]engine.ItemError{{Item: allowed}, {Item: gap}, attribute})
+	if len(locked) != 1 || locked[0].Item != allowed || len(skipped) != 1 || skipped[0].Item != gap || len(metadata) != 1 {
+		t.Errorf("locked=%+v metadata=%+v skipped=%+v", locked, metadata, skipped)
+	}
+}
+
+// A .gdoc is a link to a document that lives in the cloud. Reading one on a
+// Google Drive disk fails, and a link holds nothing worth saving.
+func TestGoogleLinksStayOut(t *testing.T) {
+	home := fakehome.Copy(t, fakehome.NoDesktop)
+	folder := filepath.Join(home, "диск")
+	fakehome.Write(t, filepath.Join(folder, "Документ.gdoc"), "{}")
+	fakehome.Write(t, filepath.Join(folder, "документ.docx"), "x")
+	plan := projectsPlan(t, home, nil, folder)
+	if kept := survivors(t, plan, folder); len(kept) != 1 || kept[0] != "документ.docx" {
+		t.Errorf("kept = %v", kept)
 	}
 }
 
@@ -571,13 +585,6 @@ func TestVerifyFindsWhatMustNotBeThere(t *testing.T) {
 	}
 	if _, asked := check.Sought["vm_bundles"]; !asked {
 		t.Errorf("sought = %+v", check.Sought)
-	}
-}
-
-func TestSnapshotPaths(t *testing.T) {
-	paths := SnapshotPaths([]string{filepath.FromSlash("/a/b")})
-	if len(paths) != 1 || !strings.HasSuffix(paths[0], "/a/b") {
-		t.Errorf("paths = %v", paths)
 	}
 }
 

@@ -22,7 +22,7 @@
   "projects": {
     "not_projects": ["~/.claude", "~/Library/Application Support/Claude", "/tmp", "/private/tmp", "/private/var/folders", "%TMPDIR%"],
     "worktree_dirs": [".claude/worktrees"],
-    "exclude": [".next", ".nuxt", ".gradle", ".terraform", "Pods", ".cache", ".pytest_cache", ".ruff_cache", ".mypy_cache"],
+    "exclude": [".next", ".nuxt", ".gradle", ".terraform", "Pods", ".cache", ".pytest_cache", ".ruff_cache", ".mypy_cache", "*.gdoc", "*.gsheet", "*.gslides"],
     "exclude_in_git": ["dist", "build", "target", "coverage", "out"],
     "media_extensions": ["mp4", "mov", "avi", "mkv", "mp3", "wav", "flac", "m4a", "jpg", "jpeg", "png", "heic"]
   }

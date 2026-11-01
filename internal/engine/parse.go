@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/i18n"
@@ -82,6 +83,17 @@ type ItemError struct {
 	Item    string `json:"item"`
 	During  string `json:"during"`
 	Message string `json:"message"`
+}
+
+// metadataOnlyPrefix starts restic's message when a file's attributes could not
+// be read. If restic ever rewords it, such files count as not saved, which is the
+// safe direction.
+const metadataOnlyPrefix = "incomplete metadata for "
+
+// MetadataOnly reports a problem with a file's attributes: its content was
+// stored. Virtual disks such as Google Drive cause this on every file.
+func (e ItemError) MetadataOnly() bool {
+	return strings.HasPrefix(e.Message, metadataOnlyPrefix)
 }
 
 type messageHeader struct {

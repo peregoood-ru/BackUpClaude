@@ -51,7 +51,7 @@
       ".next", ".nuxt", ".svelte-kit", ".angular", ".turbo", ".vite", ".parcel-cache", ".gradle",
       ".terraform", ".vs", "Pods", ".dart_tool", ".expo", "bower_components", ".pnpm-store",
       ".cache", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox", ".nox", ".ipynb_checkpoints",
-      ".sass-cache"
+      ".sass-cache", "*.gdoc", "*.gsheet", "*.gslides", "*.gdraw", "*.gform", "*.gjam", "*.gmap", "*.gsite"
     ],
     "exclude_in_git": ["dist", "build", "target", "coverage", "out"],
     "media_extensions": [

@@ -91,8 +91,10 @@ type profileResult struct {
 	DataAdded    int64              `json:"data_added"`
 	Seconds      float64            `json:"seconds"`
 	LockedFiles  []engine.ItemError `json:"locked_files,omitempty"`
-	SkippedFiles []engine.ItemError `json:"skipped_files,omitempty"`
-	Error        *i18n.Description  `json:"error,omitempty"`
+	// MetadataFiles are saved, but without some attributes.
+	MetadataFiles []engine.ItemError `json:"metadata_files,omitempty"`
+	SkippedFiles  []engine.ItemError `json:"skipped_files,omitempty"`
+	Error         *i18n.Description  `json:"error,omitempty"`
 }
 
 type backupReport struct {
@@ -168,12 +170,12 @@ func (a *app) runProfile(ctx context.Context, current *session, name string, in 
 		fillSummary(&result, backup.Summary)
 	}
 	if backup != nil {
-		result.LockedFiles, result.SkippedFiles = plan.SortSkipped(backup.Skipped)
+		result.LockedFiles, result.MetadataFiles, result.SkippedFiles = plan.SortSkipped(backup.Skipped)
 	}
 	switch {
 	case err != nil && !engine.IsKind(err, engine.KindIncomplete):
 		return failed(err)
-	case len(result.SkippedFiles) > 0, err != nil && len(result.LockedFiles) == 0:
+	case len(result.SkippedFiles) > 0, err != nil && len(result.LockedFiles)+len(result.MetadataFiles) == 0:
 		result.Status = backupIncomplete
 	case dryRun:
 		result.Status = backupPlanned
@@ -209,6 +211,9 @@ func (a *app) printBackup(w io.Writer, report backupReport) {
 		}
 		for _, item := range result.LockedFiles {
 			fmt.Fprintln(w, "  "+a.tr.T("backup.locked", item.Item))
+		}
+		if count := len(result.MetadataFiles); count > 0 {
+			fmt.Fprintln(w, "  "+a.tr.T("backup.metadata", count))
 		}
 		for _, item := range result.SkippedFiles {
 			fmt.Fprintln(w, "  "+a.tr.T("backup.skipped", item.Item, item.Message))

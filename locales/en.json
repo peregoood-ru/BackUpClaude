@@ -217,6 +217,7 @@
   "backup.snapshot": "Snapshot: %s",
   "backup.locked": "Held by another program, the next run will try again: %s",
   "backup.skipped": "NOT SAVED: %s: %s",
+  "backup.metadata": "Files saved without some attributes, the content is in the snapshot: %d",
   "backup.plan.counts": "Sources: %d, exclusion patterns: %d",
   "backup.plan.inside": "%s lies inside %s",
   "backup.plan.excluded": "Excluded in the settings: %s",

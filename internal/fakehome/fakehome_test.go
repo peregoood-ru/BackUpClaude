@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -38,7 +39,7 @@ func TestCopyHasTheRepositoryMarker(t *testing.T) {
 }
 
 func TestLineEscapesThePath(t *testing.T) {
-	if got := Line(`C:\Проект`); got == "" || !slices.Contains([]bool{true}, len(got) > 10) {
+	if got := Line(`C:\Проект`); !strings.Contains(got, `"cwd":"C:\\Проект"`) {
 		t.Errorf("line = %q", got)
 	}
 }

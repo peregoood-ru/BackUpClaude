@@ -239,14 +239,14 @@ func projectRows(in profile.Inputs) ([]projectRow, []profile.Warning, error) {
 			Saved: saved[project.Path] != "" || inside[project.Path] != "", Inside: inside[project.Path],
 		})
 	}
-	for path, source := range saved {
-		if !seen[path] {
-			rows = append(rows, projectRow{Path: path, Source: source, Saved: true})
+	for folder, source := range saved {
+		if !seen[folder] {
+			rows = append(rows, projectRow{Path: folder, Source: source, Saved: true})
 		}
 	}
-	for path, outer := range inside {
-		if !seen[path] {
-			rows = append(rows, projectRow{Path: path, Source: profile.SourceExtra, Saved: true, Inside: outer})
+	for folder, outer := range inside {
+		if !seen[folder] {
+			rows = append(rows, projectRow{Path: folder, Source: profile.SourceExtra, Saved: true, Inside: outer})
 		}
 	}
 	slices.SortFunc(rows, func(x, y projectRow) int { return strings.Compare(x.Path, y.Path) })

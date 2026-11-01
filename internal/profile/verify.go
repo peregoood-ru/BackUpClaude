@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
-	"github.com/peregoood-ru/BackUpClaude/internal/restore"
 )
 
 // Row statuses of a snapshot check.
@@ -88,8 +87,10 @@ func (p *Plan) Verify(ctx context.Context, snapshot string, find []string, ls fu
 	}
 	sought := map[string]string{}
 	for _, name := range p.searchedNames(find) {
-		sought[strings.ToLower(name)] = name
-		check.Sought[name] = 0
+		if !strings.Contains(name, "*") {
+			sought[strings.ToLower(name)] = name
+			check.Sought[name] = 0
+		}
 	}
 	rules := p.rules.matcher()
 	err := ls(ctx, snapshot, nil, func(node engine.Node) {
@@ -150,13 +151,4 @@ func (p *Plan) searchedNames(find []string) []string {
 		names = append(names, p.manifest.Projects.Exclude...)
 	}
 	return names
-}
-
-// SnapshotPaths renders items for restic ls.
-func SnapshotPaths(paths []string) []string {
-	result := make([]string, len(paths))
-	for i, path := range paths {
-		result[i] = restore.SnapshotPath(path)
-	}
-	return result
 }

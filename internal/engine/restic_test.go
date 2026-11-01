@@ -189,6 +189,15 @@ func TestBackupPassesProfileOptions(t *testing.T) {
 	}
 }
 
+func TestMetadataOnly(t *testing.T) {
+	if !(ItemError{Message: "incomplete metadata for D:\\x: get EA failed"}).MetadataOnly() {
+		t.Error("metadata problem not recognised")
+	}
+	if (ItemError{Message: "failed to save D:\\x: read: Incorrect function."}).MetadataOnly() {
+		t.Error("a file that was not saved must not pass as a metadata problem")
+	}
+}
+
 func TestLsReadsNodesAndSkipsTheSnapshotLine(t *testing.T) {
 	r, record := fakeClient(t, "ls")
 	var nodes []Node
