@@ -266,5 +266,7 @@
   "projects.state_write_failed": "Не удалось сохранить список проектов в %s",
 
   "doctor.desktop.ok": "Данные приложения Claude: %s",
-  "doctor.desktop.absent": "Данные приложения Claude не найдены."
+  "doctor.desktop.absent": "Данные приложения Claude не найдены.",
+  "engine.restic.no_retention": "Не задано ни одного правила хранения",
+  "engine.restic.no_retention.hint": "Задайте в настройках хотя бы одно из retention.hourly, daily, weekly, monthly больше нуля."
 }

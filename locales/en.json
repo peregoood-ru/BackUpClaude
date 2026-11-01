@@ -266,5 +266,7 @@
   "projects.state_write_failed": "Could not save the list of projects to %s",
 
   "doctor.desktop.ok": "Claude application data: %s",
-  "doctor.desktop.absent": "The Claude application's data was not found."
+  "doctor.desktop.absent": "The Claude application's data was not found.",
+  "engine.restic.no_retention": "No retention rule is set",
+  "engine.restic.no_retention.hint": "Set at least one of retention.hourly, daily, weekly or monthly above zero in the settings."
 }

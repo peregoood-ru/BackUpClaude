@@ -93,7 +93,14 @@ type Restic struct {
 	CacheDir string
 	// ExtraEnv is appended to the child environment, mostly for tests.
 	ExtraEnv []string
+	// RetryLock makes restic wait this long for a repository that another run
+	// holds, instead of failing at once. Zero means no waiting.
+	RetryLock time.Duration
 }
+
+// lockingCommands are the restic commands that take a lock a running backup or
+// cleanup can block.
+var lockingCommands = map[string]bool{"backup": true, "forget": true, "prune": true, "check": true}
 
 // PasswordCommand builds a --password-command value. restic splits it like a
 // shell does and treats a backslash outside quotes as a separator, so Windows
@@ -141,6 +148,9 @@ func (r *Restic) repoArgs(command string, args ...string) []string {
 	}
 	if r.CacheDir != "" {
 		full = append(full, "--cache-dir", r.CacheDir)
+	}
+	if r.RetryLock > 0 && lockingCommands[command] {
+		full = append(full, "--retry-lock", r.RetryLock.String())
 	}
 	return append(full, args...)
 }
