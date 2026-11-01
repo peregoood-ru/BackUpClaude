@@ -242,6 +242,49 @@ func TestFilter(t *testing.T) {
 	}
 }
 
+// With HOME inside /tmp, as in containers, "/tmp is never a project" must not
+// silently drop every project of the user.
+func TestFilterWithHomeInsideASkippedTree(t *testing.T) {
+	home := fakehome.Copy(t, fakehome.NoDesktop)
+	manifest := windowsManifest(t)
+	tree := filepath.Dir(home)
+	manifest.Projects.NotProjects = append(manifest.Projects.NotProjects, tree)
+	filter := NewFilter(manifest, fakeEnv(home))
+	project := filepath.Join(home, "Мои проекты", "Сайт клуба")
+	cases := []struct {
+		name, cwd, project, skip string
+	}{
+		{"project in home is kept", project, project, ""},
+		{"home itself", home, "", SkipHome},
+		{"the tree above home", tree, "", SkipRoot},
+		{"a neighbour of home in the tree", filepath.Join(tree, "чужая папка"), "", SkipSystem},
+		{"a tree inside home still applies", filepath.Join(home, ".claude", "projects"), "", SkipSystem},
+		{"temp inside home still applies", filepath.Join(home, "AppData", "Local", "Temp", "x"), "", SkipSystem},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotProject, gotSkip := filter.Classify(tc.cwd)
+			if gotProject != tc.project || gotSkip != tc.skip {
+				t.Errorf("got %q, %q", gotProject, gotSkip)
+			}
+		})
+	}
+}
+
+// The fixture's transcript must not add a project on any OS: a path that is
+// foreign on Windows and real on Linux made tests depend on the OS.
+func TestFixtureTranscriptNamesNoProject(t *testing.T) {
+	home := fakehome.Copy(t, fakehome.NoDesktop)
+	state := &State{Version: stateVersion}
+	_, skipped := scan(t, home, state)
+	if len(state.Projects) != 0 {
+		t.Errorf("projects = %+v", state.Projects)
+	}
+	if len(skipped) != 1 || skipped[0].Reason != SkipForeign {
+		t.Errorf("skipped = %+v", skipped)
+	}
+}
+
 func TestFilterFollowsLinkedWorktree(t *testing.T) {
 	home := fakehome.Copy(t, fakehome.Both)
 	main := filepath.Join(home, "Мои проекты", "Сайт клуба")
