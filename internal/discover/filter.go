@@ -60,11 +60,20 @@ func (f *Filter) Classify(raw string) (project, skip string) {
 		return "", SkipRoot
 	}
 	for _, tree := range f.trees {
-		if key == tree || isInside(key, tree) {
+		if (key == tree || isInside(key, tree)) && !f.shieldedByHome(key, tree) {
 			return "", SkipSystem
 		}
 	}
 	return path, ""
+}
+
+// shieldedByHome keeps the user's own folders when the home folder itself lies
+// inside a tree that is never a project. That happens where HOME sits in /tmp,
+// as in containers and on build machines. Without this every project there would
+// be dropped without a word. Trees inside the home folder, such as ~/.claude, do
+// not hold it and still apply.
+func (f *Filter) shieldedByHome(path, tree string) bool {
+	return f.home != "" && isInside(f.home, tree) && isInside(path, f.home)
 }
 
 // isInside reports whether the key path lies below the key tree.
