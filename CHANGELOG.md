@@ -19,6 +19,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Profiles `claude` and `projects`, the `backup` command with `--profile` and `--dry-run`, and the `list` command for snapshots, sessions and projects.
 - Service commands `measure` for size and heavy media, and `verify` to read what a snapshot really holds.
 
+### Changed
+
+- On Windows the data folder is `%USERPROFILE%\.backupclaude` instead of `%LOCALAPPDATA%\BackUpClaude`. A Store installation of Claude Desktop redirects `%LOCALAPPDATA%` into its package for everything it starts, so a scheduled task, which runs outside the package, could not see the settings. To move an older folder, copy its content.
+
 ### Fixed
 
 - With the home folder inside a tree that is never a project, such as `/tmp` in a container, every project was dropped silently. Folders inside home now stay projects.
