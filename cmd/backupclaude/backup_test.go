@@ -489,6 +489,39 @@ func TestListFindsDesktopDescriptionsInTheSnapshot(t *testing.T) {
 	}
 }
 
+// A crash left description files full of zero bytes. They are on disk, so they
+// must not show up as sessions that exist only in the snapshot.
+func TestListKeepsDamagedSessionsOnDisk(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("the fixture's desktop folders are those of the Windows manifest")
+	}
+	w := newBackupWorld(t, "")
+	folder := filepath.Join(w.home, filepath.FromSlash(fakehome.StoreRoot), "claude-code-sessions")
+	fakehome.Write(t, filepath.Join(folder, "a", "b", "local_broken.json"), strings.Repeat("\x00", 100))
+	writeSnapshots(t, w.dir, snapshotJSON("aaaa1111", profile.Claude, "2026-11-01T09:00:00+03:00"))
+	node := nodeJSON(restore.SnapshotPath(folder)+"/a/b/local_broken.json", "file", 100)
+	if err := os.WriteFile(filepath.Join(w.dir, "nodes.jsonl"), []byte(node+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := w.run("list", "--sessions", "--json")
+	var data listResult
+	if err := json.Unmarshal(r.envelope(t).Data, &data); err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range *data.Sessions {
+		if row.ID == "broken" {
+			if !row.OnDisk || !row.InSnapshot || !row.Damaged {
+				t.Errorf("%+v", row)
+			}
+			if text := w.run("list", "--sessions"); !strings.Contains(text.stdout, "damaged on disk") {
+				t.Errorf("%+v", text)
+			}
+			return
+		}
+	}
+	t.Fatalf("rows = %+v", *data.Sessions)
+}
+
 func TestListOfProjectsNeedsNoRepository(t *testing.T) {
 	w := newBackupWorld(t, "")
 	w.restic = ""

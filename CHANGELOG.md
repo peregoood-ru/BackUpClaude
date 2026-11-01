@@ -21,4 +21,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- `list` showed every session as not saved: `restic ls` with a path stops at direct children unless given `--recursive`. Application sessions without a transcript are now compared with the snapshot too.
+- `list` showed every session as not saved: `restic ls` with a path stops at direct children unless given `--recursive`. Application sessions without a transcript are now compared with the snapshot too, and a damaged description on disk no longer looks like a deleted session.

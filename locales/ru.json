@@ -243,6 +243,7 @@
   "list.session.both": "сохранена",
   "list.session.disk_only": "ещё не сохранена",
   "list.session.snapshot_only": "только в снимке",
+  "list.session.damaged": "повреждена на диске",
   "list.projects": "Проекты: %d",
   "list.project.saved": "%s (сессий: %d)",
   "list.project.inside": "%s лежит внутри %s",

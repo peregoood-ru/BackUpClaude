@@ -39,6 +39,8 @@ type Session struct {
 	Path          string    `json:"path"`
 	Size          int64     `json:"size"`
 	Modified      time.Time `json:"modified"`
+	// Damaged marks a description that exists but cannot be read.
+	Damaged bool `json:"damaged,omitempty"`
 }
 
 // Sessions is what a pass over Claude's folders finds.
@@ -214,6 +216,8 @@ func (s *Sessions) readDescriptions(root, kind string, byID map[string]int) {
 		var meta description
 		if json.Unmarshal(data, &meta) != nil {
 			s.Unreadable = append(s.Unreadable, path)
+			id, _ := DescriptionID(entry.Name())
+			s.List = append(s.List, Session{ID: id, Kind: kind, Path: path, Size: info.Size(), Modified: info.ModTime(), Damaged: true})
 			return nil
 		}
 		s.addDescription(meta, kind, path, info, byID)

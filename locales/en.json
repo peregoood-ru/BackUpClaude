@@ -243,6 +243,7 @@
   "list.session.both": "saved",
   "list.session.disk_only": "not saved yet",
   "list.session.snapshot_only": "only in the snapshot",
+  "list.session.damaged": "damaged on disk",
   "list.projects": "Projects: %d",
   "list.project.saved": "%s (sessions: %d)",
   "list.project.inside": "%s lies inside %s",

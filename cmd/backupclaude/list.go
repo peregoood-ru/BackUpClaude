@@ -71,6 +71,7 @@ type sessionRow struct {
 	Modified   time.Time `json:"modified"`
 	OnDisk     bool      `json:"on_disk"`
 	InSnapshot bool      `json:"in_snapshot"`
+	Damaged    bool      `json:"damaged,omitempty"`
 }
 
 // projectRow is one project or own folder.
@@ -183,7 +184,7 @@ func (a *app) sessionRows(ctx context.Context, current *session, snapshots []eng
 		}
 		joined.rows = append(joined.rows, sessionRow{
 			ID: item.ID, Kind: item.Kind, Title: item.Title, Cwd: item.Cwd,
-			Size: item.Size, Modified: item.Modified, OnDisk: true,
+			Size: item.Size, Modified: item.Modified, OnDisk: true, Damaged: item.Damaged,
 		})
 	}
 	latest := latestOf(snapshots, profile.Claude)
@@ -312,6 +313,8 @@ func (a *app) printList(w io.Writer, result listResult, options listOptions) {
 		for _, row := range limited(*result.Sessions, options.limit) {
 			state := a.tr.T("list.session.both")
 			switch {
+			case row.Damaged:
+				state = a.tr.T("list.session.damaged")
 			case !row.OnDisk:
 				state = a.tr.T("list.session.snapshot_only")
 			case !row.InSnapshot:

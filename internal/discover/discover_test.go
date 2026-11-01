@@ -406,6 +406,16 @@ func TestDamagedDescriptionIsReported(t *testing.T) {
 	if !contains(sessions.Unreadable, path) {
 		t.Errorf("unreadable = %v", sessions.Unreadable)
 	}
+	// It is still on disk: without a row of its own it would look deleted.
+	listed := false
+	for _, session := range sessions.List {
+		if session.ID == "broken" && session.Damaged {
+			listed = true
+		}
+	}
+	if !listed {
+		t.Errorf("sessions = %+v", sessions.List)
+	}
 }
 
 func TestMissingFoldersAreNotProblems(t *testing.T) {
