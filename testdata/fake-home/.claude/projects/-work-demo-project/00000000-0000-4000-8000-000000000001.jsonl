@@ -1,0 +1,2 @@
+{"type":"user","cwd":"/work/demo project","sessionId":"00000000-0000-4000-8000-000000000001","message":{"role":"user","content":"Hello"}}
+{"type":"assistant","cwd":"/work/demo project","sessionId":"00000000-0000-4000-8000-000000000001","message":{"role":"assistant","content":"Hello there"}}
