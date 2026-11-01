@@ -40,8 +40,15 @@ jobs:
       - name: Build and run doctor
         shell: bash
         run: |
-          go run ./cmd/backupclaude --version
-          go run ./cmd/backupclaude doctor --json
+          go build -o backupclaude-ci.exe ./cmd/backupclaude
+          ./backupclaude-ci.exe --version
+          # Exit code 1 only means problems were found: Linux runners have no
+          # key store. Anything else is a crash.
+          set +e
+          ./backupclaude-ci.exe doctor --json
+          code=$?
+          set -e
+          test "$code" -le 1
 
   lint:
     name: golangci-lint
@@ -71,7 +78,7 @@ jobs:
           echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum --check --strict
           tar -xzf "$archive" gitleaks
       - name: Scan the whole history
-        run: ./gitleaks git --redact --no-banner --exit-code 1 .
+        run: ./gitleaks git --redact --verbose --no-banner --exit-code 1 .
 
   goreleaser:
     name: GoReleaser snapshot

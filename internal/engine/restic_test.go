@@ -283,7 +283,8 @@ func TestPasswordCommandQuoting(t *testing.T) {
 		executable string
 		want       string
 	}{
-		{`C:\Apps\backupclaude.exe`, `C:\Apps\backupclaude.exe restic-password`},
+		{`C:\Apps\backupclaude.exe`, `"C:\Apps\backupclaude.exe" restic-password`},
+		{`/usr/local/bin/backupclaude`, `/usr/local/bin/backupclaude restic-password`},
 		{`D:\Мои проекты\backupclaude.exe`, `"D:\Мои проекты\backupclaude.exe" restic-password`},
 		{`/opt/odd"name/app`, `'/opt/odd"name/app' restic-password`},
 	}

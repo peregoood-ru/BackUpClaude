@@ -96,7 +96,8 @@ type Restic struct {
 }
 
 // PasswordCommand builds a --password-command value. restic splits it like a
-// shell does, so paths with spaces are quoted.
+// shell does and treats a backslash outside quotes as a separator, so Windows
+// paths must be quoted too.
 func PasswordCommand(executable string, args ...string) string {
 	parts := make([]string, 0, len(args)+1)
 	parts = append(parts, quoteArgument(executable))
@@ -107,7 +108,7 @@ func PasswordCommand(executable string, args ...string) string {
 }
 
 func quoteArgument(arg string) string {
-	if !strings.ContainsAny(arg, " \t'\"") {
+	if !strings.ContainsAny(arg, " \t'\"\\") {
 		return arg
 	}
 	if strings.Contains(arg, `"`) {

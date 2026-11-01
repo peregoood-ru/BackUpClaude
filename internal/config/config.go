@@ -213,7 +213,7 @@ func (c *Config) validate(name string) error {
 		add("config.retention.nothing")
 	}
 	for i, path := range c.Sources.Extra {
-		if strings.TrimSpace(path) == "" || !(filepath.IsAbs(path) || strings.HasPrefix(path, "~")) {
+		if !validExtra(path) {
 			add("config.extra.invalid", i+1, path)
 		}
 	}
@@ -226,6 +226,10 @@ func (c *Config) validate(name string) error {
 		return nil
 	}
 	return &i18n.Error{Key: "config.invalid", Args: []any{name}, HintKey: "config.invalid.hint", Details: problems}
+}
+
+func validExtra(path string) bool {
+	return filepath.IsAbs(path) || strings.HasPrefix(path, "~")
 }
 
 func validOffsite(location string) bool {
