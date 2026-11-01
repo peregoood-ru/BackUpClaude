@@ -117,12 +117,15 @@ func Compare(want, got *Tree) []Difference {
 	return differences
 }
 
-// RestoredPath returns where restic puts source when restoring a snapshot into
-// target: the full path is kept, with the drive letter as a folder.
-func RestoredPath(target, source string) string {
+// SnapshotPath returns the form restic gives a local path inside a snapshot:
+// forward slashes, with the drive letter as the first folder.
+func SnapshotPath(source string) string {
 	volume := filepath.VolumeName(source)
-	rest := strings.TrimPrefix(source, volume)
-	return filepath.Join(target, strings.TrimSuffix(volume, ":"), rest)
+	rest := filepath.ToSlash(strings.TrimPrefix(source, volume))
+	if volume == "" {
+		return rest
+	}
+	return "/" + strings.TrimSuffix(volume, ":") + rest
 }
 
 const (

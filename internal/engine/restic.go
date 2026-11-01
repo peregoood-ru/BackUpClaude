@@ -145,8 +145,9 @@ func (r *Restic) repoArgs(command string, args ...string) []string {
 	return append(full, args...)
 }
 
-// run starts restic and hands every stdout line to onLine.
-func (r *Restic) run(ctx context.Context, args []string, onLine func(line []byte)) error {
+// run starts restic and hands every stdout line to onLine. restic --json
+// reports per-file errors on stderr; onErrorLine gets those lines at the end.
+func (r *Restic) run(ctx context.Context, args []string, onLine, onErrorLine func(line []byte)) error {
 	cmd := exec.CommandContext(ctx, r.Binary, args...)
 	cmd.Env = r.environ()
 	cmd.WaitDelay = killWaitDelay
@@ -164,6 +165,9 @@ func (r *Restic) run(ctx context.Context, args []string, onLine func(line []byte
 	}
 	readErr := forEachLine(stdout, onLine)
 	waitErr := cmd.Wait()
+	if onErrorLine != nil {
+		_ = forEachLine(strings.NewReader(stderr.String()), onErrorLine)
+	}
 
 	var exitErr *exec.ExitError
 	switch {
@@ -266,7 +270,7 @@ func (r *Restic) Version(ctx context.Context) (*VersionInfo, error) {
 		if json.Unmarshal(line, &candidate) == nil && candidate.Version != "" {
 			info, found = candidate, true
 		}
-	})
+	}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -287,14 +291,14 @@ func (r *Restic) Init(ctx context.Context) (string, error) {
 		if json.Unmarshal(line, &msg) == nil && msg.MessageType == "initialized" {
 			id = msg.ID
 		}
-	})
+	}, nil)
 	return id, err
 }
 
 // Probe opens the repository without locking it. A missing repository gives
 // KindRepoMissing, a wrong password KindWrongPassword.
 func (r *Restic) Probe(ctx context.Context) error {
-	return r.run(ctx, r.repoArgs("cat", "--no-lock", "config"), nil)
+	return r.run(ctx, r.repoArgs("cat", "--no-lock", "config"), nil, nil)
 }
 
 // BackupOptions selects what a backup run stores.
@@ -332,6 +336,10 @@ func (r *Restic) Backup(ctx context.Context, opts BackupOptions) (*BackupResult,
 		if item != nil {
 			result.Skipped = append(result.Skipped, *item)
 		}
+	}, func(line []byte) {
+		if _, item := parseBackupLine(line); item != nil {
+			result.Skipped = append(result.Skipped, *item)
+		}
 	})
 	if err != nil {
 		return result, err
@@ -345,29 +353,63 @@ func (r *Restic) Backup(ctx context.Context, opts BackupOptions) (*BackupResult,
 // RestoreOptions selects what a restore run writes.
 type RestoreOptions struct {
 	Snapshot string
-	Target   string
-	Includes []string
+	// Subfolder is a path inside the snapshot, in restic form: /C/Users/name.
+	// Its content lands directly in Target, and no parent folder is recreated.
+	// Parents carry the access rights of system folders: on Windows an ordinary
+	// user who restores them gets access denied.
+	Subfolder string
+	Target    string
+	Includes  []string
 }
 
-// Restore writes a snapshot to the target folder.
+// Restore writes a snapshot to the target folder. On failure the error names
+// the first files restic could not write.
 func (r *Restic) Restore(ctx context.Context, opts RestoreOptions) (*RestoreSummary, error) {
-	args := []string{opts.Snapshot, "--target", opts.Target}
+	snapshot := opts.Snapshot
+	if opts.Subfolder != "" {
+		snapshot += ":" + opts.Subfolder
+	}
+	args := []string{snapshot, "--target", opts.Target}
 	for _, pattern := range opts.Includes {
 		args = append(args, "--include", pattern)
 	}
 	var summary *RestoreSummary
+	var failed []ItemError
 	err := r.run(ctx, r.repoArgs("restore", args...), func(line []byte) {
-		if parsed := parseRestoreLine(line); parsed != nil {
+		parsed, item := parseRestoreLine(line)
+		if parsed != nil {
 			summary = parsed
+		}
+		if item != nil {
+			failed = append(failed, *item)
+		}
+	}, func(line []byte) {
+		if _, item := parseRestoreLine(line); item != nil {
+			failed = append(failed, *item)
 		}
 	})
 	if err != nil {
+		var resticErr *ResticError
+		if errors.As(err, &resticErr) {
+			resticErr.Message = withItems(resticErr.Message, failed)
+		}
 		return summary, err
 	}
 	if summary == nil {
 		return nil, i18n.E("engine.restic.bad_output")
 	}
 	return summary, nil
+}
+
+func withItems(message string, items []ItemError) string {
+	const shown = 3
+	for i, item := range items {
+		if i == shown {
+			break
+		}
+		message += "; " + item.Item + ": " + item.Message
+	}
+	return message
 }
 
 // Snapshots lists snapshots, optionally only those with a tag.
@@ -379,7 +421,7 @@ func (r *Restic) Snapshots(ctx context.Context, tag string) ([]Snapshot, error) 
 	var output bytes.Buffer
 	err := r.run(ctx, r.repoArgs("snapshots", args...), func(line []byte) {
 		output.Write(line)
-	})
+	}, nil)
 	if err != nil {
 		return nil, err
 	}

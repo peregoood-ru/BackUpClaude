@@ -49,6 +49,7 @@ func fakeRestic(mode string) {
 		fmt.Println(`{"message_type":"summary","files_new":2,"files_changed":1,"files_unmodified":0,"data_added":123,"total_files_processed":3,"total_bytes_processed":456,"total_duration":1.5,"snapshot_id":"deadbeef"}`)
 	case "backup-incomplete":
 		fmt.Println(`{"message_type":"error","error":{"message":"file is locked"},"during":"archival","item":"C:\\busy.db"}`)
+		fmt.Fprintln(os.Stderr, `{"message_type":"error","error":{"message":"also on stderr"},"during":"scan","item":"C:\\gone.db"}`)
 		fmt.Println(`{"message_type":"summary","files_new":1,"snapshot_id":"deadbeef"}`)
 		os.Exit(exitIncomplete)
 	case "backup-no-summary":
@@ -56,6 +57,9 @@ func fakeRestic(mode string) {
 	case "restore":
 		fmt.Println(`{"message_type":"status","percent_done":1}`)
 		fmt.Println(`{"message_type":"summary","seconds_elapsed":2,"total_files":3,"files_restored":3,"total_bytes":456,"bytes_restored":456}`)
+	case "restore-failed":
+		fmt.Fprintln(os.Stderr, `{"message_type":"error","error":{"message":"access denied"},"during":"restore","item":"/data/file.txt"}`)
+		exitWith(1, "There were 1 errors")
 	case "snapshots":
 		fmt.Println(`[{"id":"deadbeef00","short_id":"deadbeef","time":"2026-11-01T10:00:00.5+03:00","hostname":"pc","paths":["D:\\x"],"tags":["selftest"]}]`)
 	case "snapshots-empty":
@@ -176,7 +180,7 @@ func TestBackupIncompleteKeepsSummaryAndItems(t *testing.T) {
 	if result.Summary == nil || result.Summary.SnapshotID != "deadbeef" {
 		t.Errorf("summary lost: %+v", result.Summary)
 	}
-	if len(result.Skipped) != 1 || result.Skipped[0].Message != "file is locked" || result.Skipped[0].Item != `C:\busy.db` {
+	if len(result.Skipped) != 2 || result.Skipped[0].Message != "file is locked" || result.Skipped[0].Item != `C:\busy.db` || result.Skipped[1].Message != "also on stderr" {
 		t.Errorf("skipped = %+v", result.Skipped)
 	}
 }
@@ -190,7 +194,7 @@ func TestBackupWithoutSummaryIsAnError(t *testing.T) {
 
 func TestRestore(t *testing.T) {
 	r, record := fakeClient(t, "restore")
-	summary, err := r.Restore(context.Background(), RestoreOptions{Snapshot: "deadbeef", Target: "/target", Includes: []string{"/data"}})
+	summary, err := r.Restore(context.Background(), RestoreOptions{Snapshot: "deadbeef", Subfolder: "/C/data", Target: "/target", Includes: []string{"/data"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,8 +202,19 @@ func TestRestore(t *testing.T) {
 		t.Errorf("summary = %+v", summary)
 	}
 	args := strings.Join(recorded(t, record).Args, " ")
-	if !strings.HasSuffix(args, "deadbeef --target /target --include /data") {
+	if !strings.HasSuffix(args, "deadbeef:/C/data --target /target --include /data") {
 		t.Errorf("args = %s", args)
+	}
+}
+
+func TestRestoreFailureNamesTheFile(t *testing.T) {
+	r, _ := fakeClient(t, "restore-failed")
+	_, err := r.Restore(context.Background(), RestoreOptions{Snapshot: "deadbeef", Target: "/target"})
+	if !IsKind(err, KindFatal) {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.Contains(err.Error(), "/data/file.txt") || !strings.Contains(err.Error(), "access denied") {
+		t.Errorf("err = %v", err)
 	}
 }
 

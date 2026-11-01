@@ -24,6 +24,9 @@ BackUpClaude is a Go application with a command line and a local browser page. I
 - `config.json` is parsed strictly: unknown fields are errors. Changing its meaning requires a new `version` and a migration.
 - External tools are pinned in `tools.lock.json` with SHA-256 from their official release checksums. Never download without checking the hash.
 - Restore never overwrites existing files.
+- Restore a subtree with `snapshot:/path`, never a full snapshot path into a target: parent folders carry the access rights of system folders, and on Windows an ordinary user then cannot change or delete what was restored.
+- `--password-command` values are always quoted: restic treats a backslash outside quotes as a separator.
+- restic `--json` sends per-file errors to stderr, not stdout.
 
 ## Workflow
 

@@ -180,11 +180,14 @@ func (a *app) selftest(ctx context.Context, source string) error {
 		return err
 	}
 	target := filepath.Join(work, "restored")
-	if _, err := current.restic.Restore(ctx, engine.RestoreOptions{Snapshot: backup.Summary.SnapshotID, Target: target}); err != nil {
+	if _, err := current.restic.Restore(ctx, engine.RestoreOptions{
+		Snapshot:  backup.Summary.SnapshotID,
+		Subfolder: restore.SnapshotPath(source),
+		Target:    target,
+	}); err != nil {
 		return err
 	}
-	restored := restore.RestoredPath(target, source)
-	got, err := restore.HashTree(restored)
+	got, err := restore.HashTree(target)
 	if err != nil {
 		return err
 	}
@@ -194,7 +197,7 @@ func (a *app) selftest(ctx context.Context, source string) error {
 		Repository:  current.restic.Repo,
 		SnapshotID:  backup.Summary.SnapshotID,
 		Source:      source,
-		RestoredTo:  restored,
+		RestoredTo:  target,
 		Files:       len(want.Files),
 		Bytes:       want.Bytes,
 		SourceHash:  want.Digest,

@@ -120,15 +120,14 @@ func TestHashTreeMissingFolder(t *testing.T) {
 	}
 }
 
-func TestRestoredPath(t *testing.T) {
+func TestSnapshotPath(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		got := RestoredPath(`C:\target`, `D:\Папка\source`)
-		if want := `C:\target\D\Папка\source`; got != want {
+		if got, want := SnapshotPath(`D:\Папка\source`), "/D/Папка/source"; got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}
 		return
 	}
-	if got := RestoredPath("/target", "/home/user/source"); got != "/target/home/user/source" {
+	if got := SnapshotPath("/home/user/source"); got != "/home/user/source" {
 		t.Errorf("got %q", got)
 	}
 }

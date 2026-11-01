@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Alphabet of the password generator: public, holds no secret"
+regexTarget = "secret"
+regexes = ['''^0123456789ABCDEFGHJKMNPQRSTVWXYZ$''']

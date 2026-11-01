@@ -70,15 +70,7 @@ func parseBackupLine(line []byte) (*BackupSummary, *ItemError) {
 		}
 		return &summary, nil
 	case "error":
-		var msg struct {
-			Item   string          `json:"item"`
-			During string          `json:"during"`
-			Error  json.RawMessage `json:"error"`
-		}
-		if json.Unmarshal(line, &msg) != nil {
-			return nil, nil
-		}
-		return nil, &ItemError{Item: msg.Item, During: msg.During, Message: errorText(msg.Error)}
+		return nil, parseItemError(line)
 	}
 	return nil, nil
 }
@@ -99,16 +91,35 @@ func errorText(raw json.RawMessage) string {
 	return string(raw)
 }
 
-func parseRestoreLine(line []byte) *RestoreSummary {
+// parseRestoreLine reads one line of restic restore --json.
+func parseRestoreLine(line []byte) (*RestoreSummary, *ItemError) {
 	var header messageHeader
-	if json.Unmarshal(line, &header) != nil || header.MessageType != "summary" {
+	if json.Unmarshal(line, &header) != nil {
+		return nil, nil
+	}
+	switch header.MessageType {
+	case "summary":
+		var summary RestoreSummary
+		if json.Unmarshal(line, &summary) != nil {
+			return nil, nil
+		}
+		return &summary, nil
+	case "error":
+		return nil, parseItemError(line)
+	}
+	return nil, nil
+}
+
+func parseItemError(line []byte) *ItemError {
+	var msg struct {
+		Item   string          `json:"item"`
+		During string          `json:"during"`
+		Error  json.RawMessage `json:"error"`
+	}
+	if json.Unmarshal(line, &msg) != nil {
 		return nil
 	}
-	var summary RestoreSummary
-	if json.Unmarshal(line, &summary) != nil {
-		return nil
-	}
-	return &summary
+	return &ItemError{Item: msg.Item, During: msg.During, Message: errorText(msg.Error)}
 }
 
 func parseSnapshots(data []byte) ([]Snapshot, error) {
