@@ -1,8 +1,64 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "os": "windows",
-  "claude_home": "~/.claude",
-  "desktop_roots": ["%APPDATA%/Claude"],
-  "include": [],
-  "exclude": []
+  "claude": {
+    "home": "~/.claude",
+    "transcripts": "projects",
+    "files": ["~/.claude.json", "~/AGENTS.md"],
+    "include": [
+      "projects", "file-history", "skills", "plugins", "settings.json", "settings.local.json",
+      "history.jsonl", "todos", "plans", "uploads", "CLAUDE.md", "rules", "hooks", "commands",
+      "agents", "output-styles"
+    ],
+    "required": ["projects"],
+    "exclude": [
+      ".credentials.json", "cache", "telemetry", "sessions", "session-env", "shell-snapshots",
+      "daemon*", "downloads", "statsig", "mcp-needs-auth-cache.json"
+    ]
+  },
+  "desktop": {
+    "roots": [
+      "%LOCALAPPDATA%/Packages/*/LocalCache/Roaming/Claude",
+      "%APPDATA%/Claude",
+      "%LOCALAPPDATA%/Claude"
+    ],
+    "markers": ["claude-code-sessions", "local-agent-mode-sessions", "claude_desktop_config.json"],
+    "session_dirs": ["claude-code-sessions", "local-agent-mode-sessions"],
+    "cowork_dir": "local-agent-mode-sessions",
+    "include": [
+      "claude-code-sessions", "local-agent-mode-sessions", "scratch-workspaces", "git-worktrees.json",
+      "config.json", "claude_desktop_config.json", "Local Storage", "IndexedDB"
+    ],
+    "exclude": [
+      "vm_bundles", "claude-code", "claude-code-vm", "Partitions", "Cache", "Code Cache", "GPUCache",
+      "GPUPersistentCache", "GrShaderCache", "ShaderCache", "DawnGraphiteCache", "DawnWebGPUCache",
+      "logs", "Crashpad", "sentry", "Network", "Dictionaries", "Shared Dictionary", "shared_proto_db",
+      "VideoDecodeStats", "WebStorage", "Session Storage", "blob_storage", "ChromeNativeHost",
+      "terminal-shell-integration", "dxt-install-*", "Cookies*", "DIPS*", "SharedStorage*",
+      "declarative_performance_observer.db*", "fcache", "lockfile", "Local State", "Preferences",
+      "ant-did", "ant-device-registry.json", "window-state.json", "dispatch-footprint-census.json",
+      "buddy-tokens.json"
+    ],
+    "locked_ok": ["Local Storage", "IndexedDB"]
+  },
+  "never": [".credentials.json", "node_modules", ".venv", "venv", "__pycache__"],
+  "projects": {
+    "not_projects": [
+      "~/.claude", "~/AppData", "%APPDATA%", "%LOCALAPPDATA%", "%TEMP%", "%TMP%"
+    ],
+    "worktree_dirs": [".claude/worktrees"],
+    "exclude": [
+      ".next", ".nuxt", ".svelte-kit", ".angular", ".turbo", ".vite", ".parcel-cache", ".gradle",
+      ".terraform", ".vs", "Pods", ".dart_tool", ".expo", "bower_components", ".pnpm-store",
+      ".cache", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox", ".nox", ".ipynb_checkpoints",
+      ".sass-cache"
+    ],
+    "exclude_in_git": ["dist", "build", "target", "coverage", "out"],
+    "media_extensions": [
+      "mp4", "mov", "avi", "mkv", "wmv", "m4v", "mts", "m2ts", "3gp", "webm", "flv", "mpg", "mpeg", "vob",
+      "mxf", "r3d", "braw", "cfa", "pek",
+      "mp3", "wav", "flac", "m4a", "aac", "ogg", "wma",
+      "jpg", "jpeg", "png", "heic", "bmp", "gif", "tif", "tiff", "webp", "cr2", "nef", "arw", "dng", "psd"
+    ]
+  }
 }

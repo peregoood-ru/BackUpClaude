@@ -1,0 +1,1 @@
+a cache folder below a plugin is the plugin's business

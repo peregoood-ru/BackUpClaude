@@ -25,6 +25,9 @@ type Layout struct {
 // ConfigFile returns the path of config.json.
 func (l Layout) ConfigFile() string { return filepath.Join(l.Root, FileName) }
 
+// ProjectsFile remembers the projects found in transcripts.
+func (l Layout) ProjectsFile() string { return filepath.Join(l.Root, "projects.json") }
+
 // BinDir holds restic and rclone.
 func (l Layout) BinDir() string { return filepath.Join(l.Root, "bin") }
 

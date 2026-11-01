@@ -12,7 +12,9 @@ import (
 	"testing"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/config"
+	"github.com/peregoood-ru/BackUpClaude/internal/discover"
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
+	"github.com/peregoood-ru/BackUpClaude/internal/fakehome"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
 )
 
@@ -45,13 +47,17 @@ type world struct {
 	store    *secrets.Memory
 	terminal bool
 	stdin    string
+	// home is the fake home folder. The real one is never read.
+	home string
+	// restic replaces the installed program when set.
+	restic string
 }
 
 func newWorld(t *testing.T) *world {
 	t.Helper()
 	t.Setenv(config.EnvHome, filepath.Join(t.TempDir(), "data"))
 	t.Setenv("BACKUPCLAUDE_LANG", "en")
-	return &world{store: secrets.NewMemory()}
+	return &world{store: secrets.NewMemory(), home: t.TempDir()}
 }
 
 func (w *world) deps() dependencies {
@@ -60,7 +66,18 @@ func (w *world) deps() dependencies {
 		executable:     func() (string, error) { return "backupclaude", nil },
 		terminal:       func() bool { return w.terminal },
 		stdoutTerminal: func() bool { return w.terminal },
+		env: func() (discover.Env, error) {
+			return discover.Env{Home: w.home, Lookup: fakehome.Lookup(w.home)}, nil
+		},
+		resticPath: w.resticPath(),
 	}
+}
+
+func (w *world) resticPath() func() string {
+	if w.restic == "" {
+		return nil
+	}
+	return func() string { return w.restic }
 }
 
 func (w *world) run(args ...string) result {
@@ -134,7 +151,7 @@ func TestPublicCommandsAreListed(t *testing.T) {
 			t.Errorf("%s: %q", name, summary)
 		}
 	}
-	for _, name := range []string{resticPasswordCommand, "tools", "repo", "selftest"} {
+	for _, name := range []string{resticPasswordCommand, "tools", "repo", "selftest", "measure", "verify"} {
 		if _, ok := found[name]; ok {
 			t.Errorf("%s should stay out of the public list", name)
 		}
@@ -142,7 +159,7 @@ func TestPublicCommandsAreListed(t *testing.T) {
 }
 
 func TestStubsExplainThemselves(t *testing.T) {
-	for _, name := range []string{"setup", "status", "backup", "list", "restore", "ui", "update", "uninstall"} {
+	for _, name := range []string{"setup", "status", "restore", "ui", "update", "uninstall"} {
 		w := newWorld(t)
 		text := w.run(name)
 		if text.code != 3 || !strings.Contains(text.stderr, name) || !strings.Contains(text.stderr, "What to do:") {
@@ -376,7 +393,7 @@ func TestResticPasswordHelperGuards(t *testing.T) {
 
 func TestRepoCommandsNeedSettings(t *testing.T) {
 	w := newWorld(t)
-	for _, args := range [][]string{{"repo", "init"}, {"selftest"}} {
+	for _, args := range [][]string{{"repo", "init"}, {"selftest"}, {"backup"}, {"list"}, {"measure"}, {"verify"}} {
 		r := w.run(append(args, "--json")...)
 		parsed := r.envelope(t)
 		if r.code == 0 || parsed.Error == nil || parsed.Error.Code != "config.missing" || parsed.Error.Hint == "" {

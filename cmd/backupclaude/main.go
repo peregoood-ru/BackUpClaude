@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/peregoood-ru/BackUpClaude/internal/discover"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
 )
 
@@ -30,6 +31,7 @@ func main() {
 			return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
 		},
 		stdoutTerminal: func() bool { return term.IsTerminal(int(os.Stdout.Fd())) },
+		env:            discover.CurrentEnv,
 	}
 	code := run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, deps)
 	stop()
@@ -45,6 +47,10 @@ type dependencies struct {
 	terminal func() bool
 	// stdoutTerminal reports whether stdout is shown on a screen.
 	stdoutTerminal func() bool
+	// env gives the home folder and environment variables.
+	env func() (discover.Env, error)
+	// resticPath replaces the installed restic when set.
+	resticPath func() string
 }
 
 func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer, deps dependencies) int {

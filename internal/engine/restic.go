@@ -306,6 +306,14 @@ type BackupOptions struct {
 	Paths    []string
 	Tags     []string
 	Excludes []string
+	// ExcludeFile holds case-insensitive patterns, one per line. A file has no
+	// length limit, and a command line does.
+	ExcludeFile string
+	// GroupByTags finds the parent snapshot by host and tags, not by the exact
+	// set of paths. Otherwise a new project makes restic read every file again.
+	GroupByTags bool
+	// DryRun reads the files and stores nothing.
+	DryRun bool
 }
 
 // BackupResult is the outcome of a backup run. Skipped lists what restic could
@@ -323,6 +331,15 @@ func (r *Restic) Backup(ctx context.Context, opts BackupOptions) (*BackupResult,
 	}
 	for _, pattern := range opts.Excludes {
 		args = append(args, "--exclude", pattern)
+	}
+	if opts.ExcludeFile != "" {
+		args = append(args, "--iexclude-file", opts.ExcludeFile)
+	}
+	if opts.GroupByTags {
+		args = append(args, "--group-by", "host,tags")
+	}
+	if opts.DryRun {
+		args = append(args, "--dry-run")
 	}
 	args = append(args, "--")
 	args = append(args, opts.Paths...)
@@ -410,6 +427,18 @@ func withItems(message string, items []ItemError) string {
 		message += "; " + item.Item + ": " + item.Message
 	}
 	return message
+}
+
+// Ls walks a snapshot, optionally only below the given snapshot paths, and hands
+// every node to onNode. Snapshots can hold hundreds of thousands of files, so
+// nothing is collected here.
+func (r *Restic) Ls(ctx context.Context, snapshot string, paths []string, onNode func(Node)) error {
+	args := append([]string{snapshot}, paths...)
+	return r.run(ctx, r.repoArgs("ls", args...), func(line []byte) {
+		if node, ok := parseNode(line); ok {
+			onNode(node)
+		}
+	}, nil)
 }
 
 // Snapshots lists snapshots, optionally only those with a tag.
