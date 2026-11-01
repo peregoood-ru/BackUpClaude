@@ -9,6 +9,7 @@ import (
 
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
 	"github.com/peregoood-ru/BackUpClaude/internal/fakehome"
+	"github.com/peregoood-ru/BackUpClaude/internal/restore"
 )
 
 // EnvRealRestic names a real restic binary. CI has none and skips this test: its
@@ -100,6 +101,24 @@ func TestRealResticFollowsThePatterns(t *testing.T) {
 		if strings.Contains(projects, banned) {
 			t.Errorf("%s must stay out:\n%s", banned, projects)
 		}
+	}
+
+	// restic stops at direct children of a given path unless told otherwise. That
+	// once made every session look unsaved, and no fake could show it.
+	transcripts := restore.SnapshotPath(filepath.Join(home, ".claude", "projects"))
+	found := 0
+	claudeSnapshot, err := restic.Snapshots(context.Background(), Claude)
+	if err != nil || len(claudeSnapshot) == 0 {
+		t.Fatalf("snapshots = %+v, %v", claudeSnapshot, err)
+	}
+	absent := restore.SnapshotPath(filepath.Join(home, "нет такой папки"))
+	err = restic.Ls(context.Background(), claudeSnapshot[0].ShortID, []string{transcripts, absent}, func(node engine.Node) {
+		if strings.HasSuffix(node.Name, ".jsonl") {
+			found++
+		}
+	})
+	if err != nil || found == 0 {
+		t.Errorf("a walk below a path must reach the files: found %d, %v", found, err)
 	}
 
 	plan := build(t, Projects, in)

@@ -162,6 +162,19 @@ func TestDesktopRules(t *testing.T) {
 	}
 }
 
+// The project of this application has a fake vm_bundles in its fixtures, and the
+// first real snapshot picked it up.
+func TestVMBundlesStayOutOfProjects(t *testing.T) {
+	home := fakehome.Copy(t, fakehome.NoDesktop)
+	folder := filepath.Join(home, "проект")
+	fakehome.Write(t, filepath.Join(folder, "testdata", "vm_bundles", "rootfs.img"), "x")
+	fakehome.Write(t, filepath.Join(folder, "main.go"), "x")
+	plan := projectsPlan(t, home, nil, folder)
+	if kept := survivors(t, plan, folder); len(kept) != 1 || kept[0] != "main.go" {
+		t.Errorf("kept = %v", kept)
+	}
+}
+
 func TestEveryPatternIsAnchored(t *testing.T) {
 	home := fakehome.Copy(t, fakehome.Both)
 	in := inputs(t, home)

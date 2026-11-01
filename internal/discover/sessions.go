@@ -29,13 +29,16 @@ const (
 
 // Session is one session found on this computer.
 type Session struct {
-	ID       string    `json:"id"`
-	Kind     string    `json:"kind"`
-	Title    string    `json:"title,omitempty"`
-	Cwd      string    `json:"cwd,omitempty"`
-	Path     string    `json:"path"`
-	Size     int64     `json:"size"`
-	Modified time.Time `json:"modified"`
+	ID string `json:"id"`
+	// DescriptionID is the id in the file name of the application's description
+	// of this session, when it differs from ID.
+	DescriptionID string    `json:"description_id,omitempty"`
+	Kind          string    `json:"kind"`
+	Title         string    `json:"title,omitempty"`
+	Cwd           string    `json:"cwd,omitempty"`
+	Path          string    `json:"path"`
+	Size          int64     `json:"size"`
+	Modified      time.Time `json:"modified"`
 }
 
 // Sessions is what a pass over Claude's folders finds.
@@ -50,24 +53,52 @@ type Sessions struct {
 	NoCwd int
 }
 
-// ReadSessions walks transcripts and the application's session descriptions.
-func ReadSessions(manifest *manifests.Manifest, found Claude, filter *Filter) *Sessions {
-	sessions := &Sessions{Workdirs: map[string]int{}}
-	if found.Home.Exists {
-		sessions.readTranscripts(filepath.Join(found.Home.Path, filepath.FromSlash(manifest.Claude.Transcripts)), filter)
-	}
-	byID := map[string]int{}
-	for i, session := range sessions.List {
-		byID[session.ID] = i
-	}
+// TranscriptsFolder is where Claude Code keeps transcripts.
+func TranscriptsFolder(manifest *manifests.Manifest, found Claude) string {
+	return filepath.Join(found.Home.Path, filepath.FromSlash(manifest.Claude.Transcripts))
+}
+
+// SessionFolder is a folder of session descriptions and the kind they are.
+type SessionFolder struct {
+	Path string
+	Kind string
+}
+
+// DescriptionFolders lists where the application describes its sessions.
+func DescriptionFolders(manifest *manifests.Manifest, found Claude) []SessionFolder {
+	var folders []SessionFolder
 	for _, root := range found.Desktop {
 		for _, dir := range manifest.Desktop.SessionDirs {
 			kind := KindDesktop
 			if dir == manifest.Desktop.CoworkDir {
 				kind = KindCowork
 			}
-			sessions.readDescriptions(filepath.Join(root.Path, filepath.FromSlash(dir)), kind, byID)
+			folders = append(folders, SessionFolder{filepath.Join(root.Path, filepath.FromSlash(dir)), kind})
 		}
+	}
+	return folders
+}
+
+// DescriptionID returns the session id in the name of a description file.
+func DescriptionID(name string) (string, bool) {
+	if !strings.HasPrefix(name, descriptionPrefix) || !strings.HasSuffix(name, descriptionSuffix) {
+		return "", false
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(name, descriptionPrefix), descriptionSuffix), true
+}
+
+// ReadSessions walks transcripts and the application's session descriptions.
+func ReadSessions(manifest *manifests.Manifest, found Claude, filter *Filter) *Sessions {
+	sessions := &Sessions{Workdirs: map[string]int{}}
+	if found.Home.Exists {
+		sessions.readTranscripts(TranscriptsFolder(manifest, found), filter)
+	}
+	byID := map[string]int{}
+	for i, session := range sessions.List {
+		byID[session.ID] = i
+	}
+	for _, folder := range DescriptionFolders(manifest, found) {
+		sessions.readDescriptions(folder.Path, folder.Kind, byID)
 	}
 	sort.Slice(sessions.List, func(i, j int) bool {
 		return sessions.List[i].Modified.After(sessions.List[j].Modified)
@@ -167,8 +198,7 @@ func (s *Sessions) readDescriptions(root, kind string, byID map[string]int) {
 			s.noteWalkError(path, err)
 			return nil
 		}
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasPrefix(name, descriptionPrefix) || !strings.HasSuffix(name, descriptionSuffix) {
+		if _, ok := DescriptionID(entry.Name()); entry.IsDir() || !ok {
 			return nil
 		}
 		info, err := entry.Info()
@@ -199,13 +229,14 @@ func (s *Sessions) addDescription(meta description, kind, path string, info fs.F
 			s.Workdirs[cwd]++
 		}
 	}
+	id, _ := DescriptionID(info.Name())
 	if index, ok := byID[meta.CLIID]; ok && meta.CLIID != "" {
 		s.List[index].Kind = kind
 		s.List[index].Title = meta.Title
+		s.List[index].DescriptionID = id
 		return
 	}
 	s.List = append(s.List, Session{
-		ID:   strings.TrimSuffix(strings.TrimPrefix(info.Name(), descriptionPrefix), descriptionSuffix),
-		Kind: kind, Title: meta.Title, Cwd: meta.Cwd, Path: path, Size: info.Size(), Modified: info.ModTime(),
+		ID: id, Kind: kind, Title: meta.Title, Cwd: meta.Cwd, Path: path, Size: info.Size(), Modified: info.ModTime(),
 	})
 }

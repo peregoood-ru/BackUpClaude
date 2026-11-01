@@ -15,6 +15,7 @@ import (
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
 	"github.com/peregoood-ru/BackUpClaude/internal/profile"
+	"github.com/peregoood-ru/BackUpClaude/internal/restore"
 )
 
 const (
@@ -169,43 +170,88 @@ func latestOf(snapshots []engine.Snapshot, name string) *engine.Snapshot {
 	return latest
 }
 
-// sessionRows joins sessions on disk with transcripts in the latest snapshot, so
-// a session Claude has deleted still shows up.
+// sessionRows joins sessions on disk with what the latest snapshot holds, so a
+// session Claude has deleted still shows up.
 func (a *app) sessionRows(ctx context.Context, current *session, snapshots []engine.Snapshot, in profile.Inputs) ([]sessionRow, error) {
 	found := discover.Locate(in.Manifest, in.Env)
 	sessions := discover.ReadSessions(in.Manifest, found, discover.NewFilter(in.Manifest, in.Env))
-	rows := make([]sessionRow, 0, len(sessions.List))
-	byID := make(map[string]int, len(sessions.List))
+	joined := sessionJoin{byID: make(map[string]int, len(sessions.List))}
 	for _, item := range sessions.List {
-		byID[item.ID] = len(rows)
-		rows = append(rows, sessionRow{
+		joined.byID[item.ID] = len(joined.rows)
+		if item.DescriptionID != "" {
+			joined.byID[item.DescriptionID] = len(joined.rows)
+		}
+		joined.rows = append(joined.rows, sessionRow{
 			ID: item.ID, Kind: item.Kind, Title: item.Title, Cwd: item.Cwd,
 			Size: item.Size, Modified: item.Modified, OnDisk: true,
 		})
 	}
 	latest := latestOf(snapshots, profile.Claude)
-	if latest == nil || !found.Home.Exists {
-		return rows, nil
+	if latest == nil {
+		return joined.rows, nil
 	}
-	root := profile.TranscriptsInSnapshot(in.Manifest, found)
-	err := current.restic.Ls(ctx, latest.ShortID, []string{root}, func(node engine.Node) {
-		if node.Type != engine.NodeFile || !strings.HasSuffix(node.Name, transcriptSuffix) ||
-			path.Dir(path.Dir(node.Path)) != root {
-			return
-		}
-		id := strings.TrimSuffix(node.Name, transcriptSuffix)
-		if index, ok := byID[id]; ok {
-			rows[index].InSnapshot = true
-			return
-		}
-		byID[id] = len(rows)
-		rows = append(rows, sessionRow{ID: id, Kind: discover.KindCode, Size: node.Size, Modified: node.Mtime, InSnapshot: true})
-	})
-	if err != nil {
+	var roots []string
+	if found.Home.Exists {
+		joined.transcripts = restore.SnapshotPath(discover.TranscriptsFolder(in.Manifest, found))
+		roots = append(roots, joined.transcripts)
+	}
+	for _, folder := range discover.DescriptionFolders(in.Manifest, found) {
+		root := restore.SnapshotPath(folder.Path)
+		joined.descriptions = append(joined.descriptions, descriptionRoot{root, folder.Kind})
+		roots = append(roots, root)
+	}
+	if len(roots) == 0 {
+		return joined.rows, nil
+	}
+	if err := current.restic.Ls(ctx, latest.ShortID, roots, joined.add); err != nil {
 		return nil, err
 	}
-	slices.SortStableFunc(rows, func(x, y sessionRow) int { return y.Modified.Compare(x.Modified) })
-	return rows, nil
+	slices.SortStableFunc(joined.rows, func(x, y sessionRow) int { return y.Modified.Compare(x.Modified) })
+	return joined.rows, nil
+}
+
+type descriptionRoot struct {
+	path, kind string
+}
+
+// sessionJoin marks rows found in a snapshot and adds those not on disk.
+type sessionJoin struct {
+	rows         []sessionRow
+	byID         map[string]int
+	transcripts  string
+	descriptions []descriptionRoot
+}
+
+func (j *sessionJoin) add(node engine.Node) {
+	if node.Type != engine.NodeFile {
+		return
+	}
+	id, kind, ok := j.identify(node)
+	if !ok {
+		return
+	}
+	if index, known := j.byID[id]; known {
+		j.rows[index].InSnapshot = true
+		return
+	}
+	j.byID[id] = len(j.rows)
+	j.rows = append(j.rows, sessionRow{ID: id, Kind: kind, Size: node.Size, Modified: node.Mtime, InSnapshot: true})
+}
+
+// identify tells whether a snapshot file is a session. A transcript sits right
+// inside a project folder; anything deeper belongs to a subagent.
+func (j *sessionJoin) identify(node engine.Node) (id, kind string, ok bool) {
+	if id, found := strings.CutSuffix(node.Name, transcriptSuffix); found && j.transcripts != "" &&
+		path.Dir(path.Dir(node.Path)) == j.transcripts {
+		return id, discover.KindCode, true
+	}
+	for _, root := range j.descriptions {
+		if strings.HasPrefix(node.Path, root.path+"/") {
+			id, found := discover.DescriptionID(node.Name)
+			return id, root.kind, found
+		}
+	}
+	return "", "", false
 }
 
 // projectRows shows the remembered list and the plan side by side. Transcripts

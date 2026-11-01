@@ -431,9 +431,14 @@ func withItems(message string, items []ItemError) string {
 
 // Ls walks a snapshot, optionally only below the given snapshot paths, and hands
 // every node to onNode. Snapshots can hold hundreds of thousands of files, so
-// nothing is collected here.
+// nothing is collected here. restic stops at the direct children of a given path
+// unless told otherwise, so the walk asks for the whole tree.
 func (r *Restic) Ls(ctx context.Context, snapshot string, paths []string, onNode func(Node)) error {
-	args := append([]string{snapshot}, paths...)
+	args := make([]string, 0, len(paths)+2)
+	if len(paths) > 0 {
+		args = append(args, "--recursive")
+	}
+	args = append(append(args, snapshot), paths...)
 	return r.run(ctx, r.repoArgs("ls", args...), func(line []byte) {
 		if node, ok := parseNode(line); ok {
 			onNode(node)

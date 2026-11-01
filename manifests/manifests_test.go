@@ -16,7 +16,7 @@ func TestLoadEveryOS(t *testing.T) {
 		if manifest.OS != goos || len(manifest.Desktop.Roots) == 0 || len(manifest.Desktop.Markers) == 0 {
 			t.Errorf("%s: %+v", goos, manifest)
 		}
-		for _, name := range []string{".credentials.json", "node_modules"} {
+		for _, name := range []string{".credentials.json", "node_modules", "vm_bundles"} {
 			if !slices.Contains(manifest.Never, name) {
 				t.Errorf("%s: %s must never be saved", goos, name)
 			}

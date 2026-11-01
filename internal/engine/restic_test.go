@@ -207,8 +207,14 @@ func TestLsReadsNodesAndSkipsTheSnapshotLine(t *testing.T) {
 	if len(nodes) != 2 || nodes[0].Type != NodeDir || nodes[1].Type != NodeFile || nodes[1].Name != "файл.txt" || nodes[1].Size != 12 {
 		t.Fatalf("nodes = %+v", nodes)
 	}
-	if args := strings.Join(recorded(t, record).Args, " "); !strings.HasSuffix(args, "deadbeef /data") {
-		t.Errorf("args = %s", args)
+	if args := strings.Join(recorded(t, record).Args, " "); !strings.HasSuffix(args, "--recursive deadbeef /data") {
+		t.Errorf("without --recursive restic shows only direct children: %s", args)
+	}
+	if err := r.Ls(context.Background(), "deadbeef", nil, func(Node) {}); err != nil {
+		t.Fatal(err)
+	}
+	if args := recorded(t, record).Args; slices.Contains(args, "--recursive") {
+		t.Errorf("args = %v", args)
 	}
 }
 

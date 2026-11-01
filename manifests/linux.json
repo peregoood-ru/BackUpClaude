@@ -18,7 +18,7 @@
     "exclude": ["vm_bundles", "claude-code", "claude-code-vm", "Partitions", "Cache", "Code Cache", "GPUCache", "logs", "Crashpad", "sentry", "Network"],
     "locked_ok": ["Local Storage", "IndexedDB"]
   },
-  "never": [".credentials.json", "node_modules", ".venv", "venv", "__pycache__"],
+  "never": [".credentials.json", "vm_bundles", "node_modules", ".venv", "venv", "__pycache__"],
   "projects": {
     "not_projects": ["~/.claude", "~/.config/Claude", "/tmp", "/var/tmp", "%TMPDIR%"],
     "worktree_dirs": [".claude/worktrees"],

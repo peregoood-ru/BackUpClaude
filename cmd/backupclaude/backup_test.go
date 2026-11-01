@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/config"
+	"github.com/peregoood-ru/BackUpClaude/internal/discover"
 	"github.com/peregoood-ru/BackUpClaude/internal/fakehome"
 	"github.com/peregoood-ru/BackUpClaude/internal/profile"
 	"github.com/peregoood-ru/BackUpClaude/internal/restore"
@@ -53,8 +54,44 @@ func fakeRestic(dir, mode string) {
 		fmt.Println(string(data))
 	case "ls":
 		data, _ := os.ReadFile(filepath.Join(dir, "nodes.jsonl"))
-		fmt.Print(string(data))
+		fmt.Print(fakeLs(string(data), os.Args[2:]))
 	}
+}
+
+// fakeLs answers like restic: with a path it shows that path and its direct
+// children, and goes deeper only with --recursive.
+func fakeLs(nodes string, args []string) string {
+	recursive := false
+	var positional []string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--json":
+		case "--recursive":
+			recursive = true
+		case "--repo", "--password-command", "--cache-dir":
+			i++
+		default:
+			positional = append(positional, args[i])
+		}
+	}
+	dirs := positional[1:]
+	var shown strings.Builder
+	for _, line := range strings.SplitAfter(nodes, "\n") {
+		var node struct {
+			Path string `json:"path"`
+		}
+		if json.Unmarshal([]byte(line), &node) != nil {
+			continue
+		}
+		if len(dirs) == 0 || slices.ContainsFunc(dirs, func(dir string) bool {
+			inside := strings.HasPrefix(node.Path, dir+"/")
+			direct := inside && !strings.Contains(strings.TrimPrefix(node.Path, dir+"/"), "/")
+			return node.Path == dir || direct || (inside && recursive)
+		}) {
+			shown.WriteString(line)
+		}
+	}
+	return shown.String()
 }
 
 func fakeBackup(args []string, dir, mode string) {
@@ -392,6 +429,9 @@ func TestListShowsAllThree(t *testing.T) {
 	if row := byID["deleted-session"]; row.OnDisk || !row.InSnapshot {
 		t.Errorf("a session Claude deleted must stay visible: %+v", row)
 	}
+	if text := w.run("list", "--sessions"); !strings.Contains(text.stdout, "only in the snapshot") {
+		t.Errorf("%+v", text)
+	}
 	if _, ok := byID["agent-1"]; ok {
 		t.Error("a subagent is not a session")
 	}
@@ -403,6 +443,49 @@ func TestListShowsAllThree(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("%+v", *data.Projects)
+	}
+}
+
+// Sessions of the application have no transcript of their own to find. Paths of
+// the desktop application exist only under the Windows manifest.
+func TestListFindsDesktopDescriptionsInTheSnapshot(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("the fixture's desktop folders are those of the Windows manifest")
+	}
+	w := newBackupWorld(t, "")
+	writeSnapshots(t, w.dir, snapshotJSON("aaaa1111", profile.Claude, "2026-11-01T09:00:00+03:00"))
+	folder := restore.SnapshotPath(filepath.Join(w.home, filepath.FromSlash(fakehome.StoreRoot), "claude-code-sessions"))
+	cowork := restore.SnapshotPath(filepath.Join(w.home, filepath.FromSlash(fakehome.ClassicRoot), "local-agent-mode-sessions"))
+	lines := []string{
+		nodeJSON(folder+"/account/org/local_33333333-0000-4000-8000-000000000003.json", "file", 10),
+		nodeJSON(folder+"/account/org/archived-sessions.idx", "file", 10),
+		nodeJSON(cowork+"/account/org/local_gone.json", "file", 10),
+		nodeJSON(cowork+"/account/org/local_gone/outputs/result.jsonl", "file", 10),
+		nodeJSON(cowork+"/account/org/local_gone/local_inner.txt", "file", 10),
+	}
+	if err := os.WriteFile(filepath.Join(w.dir, "nodes.jsonl"), []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := w.run("list", "--sessions", "--json")
+	if r.code != 0 {
+		t.Fatalf("%+v", r)
+	}
+	var data listResult
+	if err := json.Unmarshal(r.envelope(t).Data, &data); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]sessionRow{}
+	for _, row := range *data.Sessions {
+		byID[row.ID] = row
+	}
+	if row := byID["33333333-0000-4000-8000-000000000003"]; !row.OnDisk || !row.InSnapshot {
+		t.Errorf("%+v", row)
+	}
+	if row := byID["gone"]; row.OnDisk || !row.InSnapshot || row.Kind != discover.KindCowork {
+		t.Errorf("%+v", row)
+	}
+	if _, ok := byID["result"]; ok {
+		t.Errorf("a file inside a session is not a session: %+v", byID)
 	}
 }
 

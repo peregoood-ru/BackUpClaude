@@ -14,7 +14,6 @@ import (
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
 	"github.com/peregoood-ru/BackUpClaude/internal/i18n"
-	"github.com/peregoood-ru/BackUpClaude/internal/restore"
 	"github.com/peregoood-ru/BackUpClaude/manifests"
 )
 
@@ -106,11 +105,6 @@ func (p *Plan) Known() []discover.Project {
 		return nil
 	}
 	return p.state.Projects
-}
-
-// TranscriptsInSnapshot returns the transcripts folder as a snapshot spells it.
-func TranscriptsInSnapshot(manifest *manifests.Manifest, found discover.Claude) string {
-	return restore.SnapshotPath(filepath.Join(found.Home.Path, filepath.FromSlash(manifest.Claude.Transcripts)))
 }
 
 // Inputs is everything a plan depends on.

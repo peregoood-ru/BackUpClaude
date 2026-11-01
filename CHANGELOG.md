@@ -18,3 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Project discovery by the `cwd` field of transcripts and session descriptions, read as a stream. A session started in the home folder or Temp is followed to the end, because it may be the only trace of a project. Found projects stay in `projects.json` after their sessions are deleted.
 - Profiles `claude` and `projects`, the `backup` command with `--profile` and `--dry-run`, and the `list` command for snapshots, sessions and projects.
 - Service commands `measure` for size and heavy media, and `verify` to read what a snapshot really holds.
+
+### Fixed
+
+- `list` showed every session as not saved: `restic ls` with a path stops at direct children unless given `--recursive`. Application sessions without a transcript are now compared with the snapshot too.
