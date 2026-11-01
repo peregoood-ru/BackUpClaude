@@ -268,5 +268,12 @@
   "doctor.desktop.ok": "Claude application data: %s",
   "doctor.desktop.absent": "The Claude application's data was not found.",
   "engine.restic.no_retention": "No retention rule is set",
-  "engine.restic.no_retention.hint": "Set at least one of retention.hourly, daily, weekly or monthly above zero in the settings."
+  "engine.restic.no_retention.hint": "Set at least one of retention.hourly, daily, weekly or monthly above zero in the settings.",
+  "schedule.bad_name": "Not a valid task name: %q",
+  "schedule.tool_failed": "The task scheduler could not %s the task %s",
+  "schedule.tool_failed.hint": "Open an ordinary terminal window, not an administrator one, and try again. Task Scheduler may be turned off by a policy of your organization.",
+  "schedule.no_command": "Task %s has no program to run",
+  "schedule.no_user": "Could not tell which Windows user the tasks are for",
+  "schedule.no_user.hint": "Sign in to Windows as the user whose Claude data you want to save and run the command again.",
+  "schedule.work_failed": "Could not write the task definition to %s"
 }

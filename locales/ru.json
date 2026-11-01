@@ -268,5 +268,12 @@
   "doctor.desktop.ok": "Данные приложения Claude: %s",
   "doctor.desktop.absent": "Данные приложения Claude не найдены.",
   "engine.restic.no_retention": "Не задано ни одного правила хранения",
-  "engine.restic.no_retention.hint": "Задайте в настройках хотя бы одно из retention.hourly, daily, weekly, monthly больше нуля."
+  "engine.restic.no_retention.hint": "Задайте в настройках хотя бы одно из retention.hourly, daily, weekly, monthly больше нуля.",
+  "schedule.bad_name": "Недопустимое имя задачи: %q",
+  "schedule.tool_failed": "Планировщик заданий не смог выполнить действие «%s» для задачи %s",
+  "schedule.tool_failed.hint": "Откройте обычное окно терминала, не от имени администратора, и повторите. Планировщик может быть отключён политикой вашей организации.",
+  "schedule.no_command": "У задачи %s нет программы для запуска",
+  "schedule.no_user": "Не удалось определить, для какого пользователя Windows ставятся задачи",
+  "schedule.no_user.hint": "Войдите в Windows под тем пользователем, чьи данные Claude нужно сохранять, и повторите команду.",
+  "schedule.work_failed": "Не удалось записать описание задачи в %s"
 }
