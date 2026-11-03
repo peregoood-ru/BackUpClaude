@@ -373,7 +373,7 @@ func TestUISettingsAreSavedByTheSameCodeAndNeverShowThePassword(t *testing.T) {
 	change := map[string]any{
 		"language": "ru", "deletion_drop_percent": 35,
 		"retention": map[string]int{"hourly": 24, "daily": 14, "weekly": 8, "monthly": 6},
-		"extra":     []string{` "C:\Data\Заметки" `, ""}, "exclude": []string{"D:\\Big"},
+		"extra":     []string{` "~/Заметки" `, ""}, "exclude": []string{"D:\\Big"},
 	}
 	if code, saved, body := p.call("PUT", "/api/settings", change); code != http.StatusOK || !saved.OK {
 		t.Fatalf("%d %s", code, body)
@@ -384,7 +384,7 @@ func TestUISettingsAreSavedByTheSameCodeAndNeverShowThePassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.Language != "ru" || cfg.Notify.DeletionDropPercent != 35 || cfg.Retention.Hourly != 24 || cfg.Retention.Monthly != 6 ||
-		len(cfg.Sources.Extra) != 1 || cfg.Sources.Extra[0] != `C:\Data\Заметки` || len(cfg.Sources.Exclude) != 1 {
+		len(cfg.Sources.Extra) != 1 || cfg.Sources.Extra[0] != "~/Заметки" || len(cfg.Sources.Exclude) != 1 {
 		t.Errorf("saved: %+v", cfg)
 	}
 	if cfg.Tray.Enabled || w.autostart.on {

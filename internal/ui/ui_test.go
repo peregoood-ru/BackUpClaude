@@ -93,7 +93,10 @@ func start(t *testing.T, backend Backend, opts Options) *harness {
 	t.Cleanup(func() {
 		cancel()
 		select {
-		case <-done:
+		case err := <-done:
+			if err != nil {
+				t.Error(err)
+			}
 		case <-time.After(5 * time.Second):
 			t.Error("the server did not stop")
 		}
