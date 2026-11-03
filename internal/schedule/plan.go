@@ -12,11 +12,13 @@ const (
 	JobProjects = "projects"
 	JobCleanup  = "cleanup"
 	JobCheck    = "check"
+	// JobSummary sends the weekly summary of the state.
+	JobSummary = "summary"
 )
 
 // JobNames lists the jobs in the order they are shown.
 func JobNames() []string {
-	return []string{JobClaude, JobProjects, JobCleanup, JobCheck}
+	return []string{JobClaude, JobProjects, JobCleanup, JobCheck, JobSummary}
 }
 
 // Plan turns the settings into the tasks to install. executable is the full
@@ -36,5 +38,7 @@ func Plan(cfg *config.Config, executable string) []Task {
 		job(JobProjects, hours(cfg.Schedule.ProjectsEveryHours), at(3, 30), 12*time.Hour),
 		job(JobCleanup, hours(cfg.Schedule.CleanupEveryHours), at(4, 0), 12*time.Hour),
 		job(JobCheck, hours(cfg.Schedule.CheckEveryHours), at(7, 0), 6*time.Hour),
+		// After the weekly check, so that the summary can report its result.
+		job(JobSummary, hours(cfg.Schedule.SummaryEveryHours), at(9, 0), time.Hour),
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/peregoood-ru/BackUpClaude/internal/config"
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
 	"github.com/peregoood-ru/BackUpClaude/internal/i18n"
+	"github.com/peregoood-ru/BackUpClaude/internal/notify"
 	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
 )
@@ -103,8 +104,16 @@ func (a *app) runScheduled(ctx context.Context, job string) error {
 	}
 
 	current, err := a.openSession()
+	layout, layoutErr := config.Resolve()
+	notifier, notifyNote := a.notifierOf(current, layout, layoutErr)
+	if notifyNote != "" {
+		record.Notes = append(record.Notes, notifyNote)
+	}
 	if err == nil {
-		record.Result, err = a.runJob(ctx, current, job)
+		if job == schedule.JobClaude {
+			a.guardClaude(ctx, current, notifier, &record)
+		}
+		record.Result, err = a.runJob(ctx, current, job, notifier, &record)
 	}
 
 	record.Seconds = time.Since(started).Seconds()
@@ -113,8 +122,15 @@ func (a *app) runScheduled(ctx context.Context, job string) error {
 	if err != nil {
 		description := a.tr.Describe(err)
 		record.Error = &description
+		if layoutErr == nil {
+			a.tellFailure(ctx, layout.WatchFile(), notifier, job, err, &record)
+		}
+	} else if layoutErr == nil {
+		if clearErr := clearFailure(layout.WatchFile(), job); clearErr != nil {
+			record.Notes = append(record.Notes, "watch: "+clearErr.Error())
+		}
 	}
-	if layout, layoutErr := config.Resolve(); layoutErr == nil {
+	if layoutErr == nil {
 		if logErr := appendRunLog(layout, record); logErr != nil {
 			fmt.Fprintln(a.stderr, a.tr.T("run.log_failed", logErr))
 		}
@@ -139,8 +155,11 @@ func joinNames(names []string) string {
 }
 
 // runJob does the work of one job and returns what to write to the log.
-func (a *app) runJob(ctx context.Context, current *session, job string) (any, error) {
+func (a *app) runJob(ctx context.Context, current *session, job string, notifier *notify.Notifier, record *runRecord) (any, error) {
 	switch job {
+	case schedule.JobSummary:
+		return a.sendSummary(ctx, current, notifier, record)
+
 	case schedule.JobClaude, schedule.JobProjects:
 		report, failed, err := a.saveProfiles(ctx, current, []string{job}, false)
 		if err != nil {
@@ -189,6 +208,30 @@ func (a *app) runJob(ctx context.Context, current *session, job string) (any, er
 		}
 		return result, err
 	}
+}
+
+// notifierOf makes the channels for a run. The settings are enough: a run that
+// cannot open the repository (no restic yet, no password) must still be able to
+// say so. The note, if any, goes to the run log.
+func (a *app) notifierOf(current *session, layout config.Layout, layoutErr error) (*notify.Notifier, string) {
+	var cfg *config.Config
+	switch {
+	case current != nil:
+		cfg = current.config
+	case layoutErr == nil:
+		loaded, err := config.Load(layout.ConfigFile())
+		if err != nil {
+			return nil, ""
+		}
+		cfg = loaded
+	default:
+		return nil, ""
+	}
+	notifier, err := a.notifierFor(cfg)
+	if err != nil {
+		return notifier, "notify: " + a.tr.Describe(err).Message
+	}
+	return notifier, ""
 }
 
 // appendRunLog adds one line to the log of the month. One small file per month

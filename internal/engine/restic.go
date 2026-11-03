@@ -100,7 +100,7 @@ type Restic struct {
 
 // lockingCommands are the restic commands that take a lock a running backup or
 // cleanup can block.
-var lockingCommands = map[string]bool{"backup": true, "forget": true, "prune": true, "check": true}
+var lockingCommands = map[string]bool{"backup": true, "forget": true, "prune": true, "check": true, "snapshots": true, "stats": true}
 
 // PasswordCommand builds a --password-command value. restic splits it like a
 // shell does and treats a backslash outside quotes as a separator, so Windows

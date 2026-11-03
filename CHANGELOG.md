@@ -22,7 +22,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `run --job` is what a task runs: it lowers CPU, disk and memory priority (restic inherits it), ties restic to the run with a job object, removes stale locks, does the job and appends one line, with the peak memory, to `logs/runs-YYYY-MM.jsonl`.
 - Stale locks are removed before every backup (`restic unlock`, never `--remove-all`), so a crash of the computer does not block the next run.
 - Retention from `retention.*` in the settings (48 hourly, 30 daily, 12 weekly, 24 monthly by default) is applied by the weekly `cleanup`, grouped by host and tags, followed by prune. `check` runs `restic check` weekly.
-
+- Failure messages: `internal/notify` with Telegram (`sendMessage` only, never reads updates) and webhook channels, each a small module on `net/http` (no library: nothing added to the dependency tree, and the secrets are scrubbed from every error). The bot token and the webhook address live in the OS key store, the chat id in the settings; `notify telegram|webhook|remove|test` set them up. Without a channel the program works and says nothing.
+- Any failed scheduled job is reported once; a failure that goes on is repeated once a day, a successful run is never reported. An undelivered message is tried again at the next run.
+- Deletion control: the claude job compares the number of `.jsonl` transcripts with the previous run and raises an alarm when it fell by more than `notify.deletion_drop_percent` (20 by default; ignored below 5 earlier files). The backup still runs and older snapshots keep the deleted sessions.
+- Warning when an important folder of the manifest (Claude's folder, its `projects`, a desktop data folder) was there at the previous run and is gone now, which is how a move after a Claude update shows up.
+- `status` in plain words: age of the newest snapshot in each copy, size of the copies, free space on the disks, result of the last check, failed jobs and recent alarms; an external copy that is not set up is said so and is not an error. `--json` gives the same facts.
+- The weekly `summary` job (a fifth scheduled task, Sunday 09:00, `schedule.summary_every_hours`) sends the same report through the channels.
 ### Changed
 
 - On Windows the data folder is `%USERPROFILE%\.backupclaude` instead of `%LOCALAPPDATA%\BackUpClaude`. A Store installation of Claude Desktop redirects `%LOCALAPPDATA%` into its package for everything it starts, so a scheduled task, which runs outside the package, could not see the settings. To move an older folder, copy its content.

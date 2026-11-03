@@ -128,3 +128,31 @@ func (r *Restic) Check(ctx context.Context) (*CheckResult, error) {
 	}
 	return result, nil
 }
+
+// StatsResult is the size of a repository.
+type StatsResult struct {
+	// Bytes is what the repository occupies, packs after compression.
+	Bytes     int64 `json:"total_size"`
+	Files     int64 `json:"total_file_count"`
+	Blobs     int64 `json:"total_blob_count"`
+	Snapshots int64 `json:"snapshots_count"`
+}
+
+// Stats measures the repository in raw-data mode: the real size on the storage,
+// read from the index without touching the data.
+func (r *Restic) Stats(ctx context.Context) (*StatsResult, error) {
+	var result *StatsResult
+	err := r.run(ctx, r.repoArgs("stats", "--mode", "raw-data"), func(line []byte) {
+		var stats StatsResult
+		if json.Unmarshal(line, &stats) == nil && stats.Bytes > 0 {
+			result = &stats
+		}
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, i18n.E("engine.restic.bad_output")
+	}
+	return result, nil
+}

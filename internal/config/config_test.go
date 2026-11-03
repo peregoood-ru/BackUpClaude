@@ -34,7 +34,7 @@ func TestParseFillsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Schedule != (Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168}) {
+	if cfg.Schedule != (Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168, SummaryEveryHours: 168}) {
 		t.Errorf("schedule defaults: %+v", cfg.Schedule)
 	}
 	if cfg.Retention != (Retention{Hourly: 48, Daily: 30, Weekly: 12, Monthly: 24}) {
@@ -191,5 +191,32 @@ func TestResolveByOSRules(t *testing.T) {
 	}
 	if !filepath.IsAbs(layout.Root) || filepath.Base(layout.Root) != dataDirName {
 		t.Errorf("root = %q", layout.Root)
+	}
+}
+
+func TestNotifySettings(t *testing.T) {
+	cfg, err := Parse([]byte(validJSON(t)), "c.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Notify.DeletionDropPercent != 20 || cfg.Notify.Telegram != nil || cfg.Notify.Webhook != nil {
+		t.Errorf("defaults: %+v", cfg.Notify)
+	}
+	withChat := strings.Replace(validJSON(t), `{"version": 1,`, `{"version": 1, "notify": {"telegram": {"chat_id": "-100123"}, "deletion_drop_percent": 35},`, 1)
+	cfg, err = Parse([]byte(withChat), "c.json")
+	if err != nil || cfg.Notify.Telegram.ChatID != "-100123" || cfg.Notify.DeletionDropPercent != 35 {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	for _, bad := range []string{
+		`"notify": {"telegram": {"chat_id": "abc def"}}`,
+		`"notify": {"telegram": {"chat_id": ""}}`,
+		`"notify": {"deletion_drop_percent": 0}`,
+		`"notify": {"deletion_drop_percent": 101}`,
+		`"notify": {"telegram": {"chat_id": "1", "token": "secret"}}`,
+	} {
+		text := strings.Replace(validJSON(t), `{"version": 1,`, `{"version": 1, `+bad+`,`, 1)
+		if _, err := Parse([]byte(text), "c.json"); err == nil {
+			t.Errorf("%s was accepted: a token must never be a setting", bad)
+		}
 	}
 }

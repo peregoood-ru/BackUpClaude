@@ -11,6 +11,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
+	"github.com/peregoood-ru/BackUpClaude/internal/notify"
 	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
 	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
@@ -62,6 +63,9 @@ type dependencies struct {
 	// process.
 	lower   func() error
 	contain func() (*sysproc.Group, error)
+	// notify tunes the network side of the notification channels; tests point
+	// them at a local server.
+	notify notify.Options
 }
 
 func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer, deps dependencies) int {

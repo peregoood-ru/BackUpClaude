@@ -33,12 +33,12 @@ func taskNamed(t *testing.T, name string) Task {
 
 func TestPlanFollowsTheSettings(t *testing.T) {
 	cfg := config.Default()
-	cfg.Schedule = config.Schedule{ClaudeEveryHours: 2, ProjectsEveryHours: 48, CleanupEveryHours: 24, CheckEveryHours: 336}
+	cfg.Schedule = config.Schedule{ClaudeEveryHours: 2, ProjectsEveryHours: 48, CleanupEveryHours: 24, CheckEveryHours: 336, SummaryEveryHours: 72}
 	byName := map[string]Task{}
 	for _, task := range Plan(&cfg, "exe") {
 		byName[task.Name] = task
 	}
-	want := map[string]time.Duration{JobClaude: 2 * time.Hour, JobProjects: 48 * time.Hour, JobCleanup: 24 * time.Hour, JobCheck: 336 * time.Hour}
+	want := map[string]time.Duration{JobClaude: 2 * time.Hour, JobProjects: 48 * time.Hour, JobCleanup: 24 * time.Hour, JobCheck: 336 * time.Hour, JobSummary: 72 * time.Hour}
 	for name, every := range want {
 		if byName[name].Every != every {
 			t.Errorf("%s every %s, want %s", name, byName[name].Every, every)
@@ -50,7 +50,7 @@ func TestPlanFollowsTheSettings(t *testing.T) {
 }
 
 func TestDefaultPlan(t *testing.T) {
-	cases := map[string]time.Duration{JobClaude: time.Hour, JobProjects: 24 * time.Hour, JobCleanup: 168 * time.Hour, JobCheck: 168 * time.Hour}
+	cases := map[string]time.Duration{JobClaude: time.Hour, JobProjects: 24 * time.Hour, JobCleanup: 168 * time.Hour, JobCheck: 168 * time.Hour, JobSummary: 168 * time.Hour}
 	for name, every := range cases {
 		task := taskNamed(t, name)
 		if task.Every != every || !slices.Equal(task.Args, []string{"run", "--job", name}) {

@@ -15,6 +15,7 @@ import (
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
 	"github.com/peregoood-ru/BackUpClaude/internal/fakehome"
+	"github.com/peregoood-ru/BackUpClaude/internal/notify"
 	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
 	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
@@ -57,6 +58,8 @@ type world struct {
 	sched schedule.Scheduler
 	// lowered and contained count the calls of a scheduled run.
 	lowered, contained int
+	// notify points the notification channels at a local server.
+	notify notify.Options
 }
 
 func newWorld(t *testing.T) *world {
@@ -79,6 +82,7 @@ func (w *world) deps() dependencies {
 		scheduler:  func(string) schedule.Scheduler { return w.sched },
 		lower:      func() error { w.lowered++; return nil },
 		contain:    func() (*sysproc.Group, error) { w.contained++; return &sysproc.Group{}, nil },
+		notify:     w.notify,
 	}
 }
 
@@ -168,7 +172,7 @@ func TestPublicCommandsAreListed(t *testing.T) {
 }
 
 func TestStubsExplainThemselves(t *testing.T) {
-	for _, name := range []string{"setup", "status", "restore", "ui", "update", "uninstall"} {
+	for _, name := range []string{"setup", "restore", "ui", "update", "uninstall"} {
 		w := newWorld(t)
 		text := w.run(name)
 		if text.code != 3 || !strings.Contains(text.stderr, name) || !strings.Contains(text.stderr, "What to do:") {
