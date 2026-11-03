@@ -169,6 +169,15 @@ $configBefore = Sha $configFile
 $r2 = Invoke-App $installed @('setup', '--yes', '--json')
 Check ($r2.Code -eq 0 -and $r2.Json.data.rerun -eq $true -and $r2.Json.data.config_changed -eq $false) 'a rerun keeps the settings'
 Check ((Sha $configFile) -eq $configBefore) 'config.json is byte for byte the same'
+$s2 = Invoke-App $installed @('schedule', 'status', '--json')
+Check (@($s2.Json.data.jobs | Where-Object { $_.installed -and $_.in_sync }).Count -eq 6) 'the tasks are still six and in sync'
+
+# The scheduler starts a task in the real environment of the user, not in the
+# fake profile of this script. A task that fires during the test would work on
+# real data, so the tasks are switched off now; uninstall removes them all the same.
+foreach ($name in 'claude', 'projects', 'cleanup', 'check', 'restore-test', 'summary') {
+  Invoke-Quiet schtasks.exe @('/Change', '/TN', "\BackUpClaude$suffix\$name", '/DISABLE') | Out-Null
+}
 
 Step 'backup after a change'
 Add-Content -Path (Join-Path $transcriptDir "$sessionB.jsonl") -Value '{"type":"user","message":{"role":"user","content":"one more"}}' -Encoding UTF8
