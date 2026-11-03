@@ -38,8 +38,11 @@ type Info struct {
 	// StartWhenAvailable means a run missed while the computer was off starts
 	// as soon as it is on again.
 	StartWhenAvailable bool
-	// Hidden means the run shows no window.
+	// Hidden means the task is kept out of the way in the scheduler's list.
 	Hidden bool
+	// Headless means the program runs through a host that shows no console
+	// window.
+	Headless bool
 	// Priority is the scheduler's own scale, 0 to 10; 7 and 8 are below normal.
 	Priority int
 	// OnBattery is true when the task also starts on battery.

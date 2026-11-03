@@ -65,7 +65,7 @@ type scheduleJob struct {
 	Command         string   `json:"command,omitempty"`
 	Args            []string `json:"args,omitempty"`
 	CatchUp         bool     `json:"run_missed_after_power_on"`
-	Hidden          bool     `json:"hidden"`
+	NoWindow        bool     `json:"no_window"`
 	Priority        int      `json:"priority,omitempty"`
 	OnBattery       bool     `json:"runs_on_battery"`
 	TimeLimitHours  float64  `json:"time_limit_hours,omitempty"`
@@ -172,7 +172,7 @@ func (a *app) describeTask(want schedule.Task, info schedule.Info) scheduleJob {
 		Job: info.Name, Installed: true, WantEveryHours: want.Every.Hours(),
 		EveryHours: info.Every.Hours(), StartAt: clock(info.At),
 		Command: info.Command, Args: info.Args,
-		CatchUp: info.StartWhenAvailable, Hidden: info.Hidden, Priority: info.Priority,
+		CatchUp: info.StartWhenAvailable, NoWindow: info.Headless, Priority: info.Priority,
 		OnBattery: info.OnBattery, TimeLimitHours: info.TimeLimit.Hours(),
 		Status: info.Status, NextRun: info.NextRun, LastRun: info.LastRun, LastResult: info.LastResult,
 	}
@@ -225,7 +225,7 @@ func (a *app) printJob(w io.Writer, job scheduleJob) {
 	}
 	fmt.Fprintln(w, a.tr.T("schedule.job.line", job.Job, every, job.Status))
 	fmt.Fprintln(w, "  "+a.tr.T("schedule.job.runs", job.NextRun, job.LastRun, job.LastResultWords, job.LastResult))
-	fmt.Fprintln(w, "  "+a.tr.T("schedule.job.flags", a.yesNo(job.CatchUp), a.yesNo(job.Hidden), job.Priority, a.yesNo(job.OnBattery)))
+	fmt.Fprintln(w, "  "+a.tr.T("schedule.job.flags", a.yesNo(job.CatchUp), a.yesNo(job.NoWindow), job.Priority, a.yesNo(job.OnBattery)))
 	if !job.InSync {
 		fmt.Fprintln(w, "  "+a.tr.T("schedule.job.out_of_sync", job.WantEveryHours))
 	}

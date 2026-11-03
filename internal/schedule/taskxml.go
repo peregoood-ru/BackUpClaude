@@ -33,8 +33,10 @@ const (
 //     own session can open it.
 //   - StartWhenAvailable: a run missed while the computer was off starts as
 //     soon as it is on again.
-//   - Hidden: the scheduler starts a hidden task in a pseudo-console, so no
-//     console window flashes on the screen.
+//   - Hidden keeps the task out of the way in the scheduler's list. It does NOT
+//     hide a console window: tested, a hidden task of a console program still
+//     shows its window for the whole run. The window is avoided by running the
+//     program through conhost.exe --headless (see schtasks.hidden).
 //   - IgnoreNew: a run that is still going is not started a second time.
 //   - Battery settings off: a laptop on battery is backed up too. The run has
 //     a low priority anyway.

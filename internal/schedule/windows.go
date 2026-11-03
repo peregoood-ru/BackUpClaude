@@ -4,6 +4,7 @@ package schedule
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
@@ -16,7 +17,28 @@ import (
 // New returns the scheduler of this OS. workDir is a folder that scheduler tools
 // can read, for the definition of a task being installed.
 func New(workDir string) Scheduler {
-	return &schtasks{exec: runSchtasks, userID: currentUserSID, workDir: workDir, now: time.Now}
+	return &schtasks{exec: runSchtasks, userID: currentUserSID, workDir: workDir, now: time.Now, quietHost: headlessHost()}
+}
+
+// firstHeadlessBuild is Windows 10 1809, which brought the pseudo console that
+// conhost.exe --headless is built on.
+const firstHeadlessBuild = 17763
+
+// headlessHost returns conhost.exe when this Windows can run a console program
+// through it without a window, and an empty string when it cannot.
+func headlessHost() string {
+	if windows.RtlGetVersion().BuildNumber < firstHeadlessBuild {
+		return ""
+	}
+	system, err := windows.GetSystemDirectory()
+	if err != nil {
+		return ""
+	}
+	host := filepath.Join(system, "conhost.exe")
+	if _, err := os.Stat(host); err != nil {
+		return ""
+	}
+	return host
 }
 
 // currentUserSID returns the security identifier of the user: it works with

@@ -224,7 +224,7 @@ func (f *fakeScheduler) List() ([]schedule.Info, error) {
 	for _, name := range schedule.JobNames() {
 		if task, ok := f.tasks[name]; ok {
 			found = append(found, schedule.Info{
-				Task: task, Enabled: true, StartWhenAvailable: true, Hidden: true, Priority: 7,
+				Task: task, Enabled: true, StartWhenAvailable: true, Hidden: true, Headless: true, Priority: 7,
 				Status: "Ready", NextRun: "soon", LastRun: "N/A", LastResult: "267011",
 			})
 		}
@@ -251,7 +251,7 @@ func TestScheduleInstallPlacesTheFourTasks(t *testing.T) {
 		t.Fatalf("%v %s", err, r.stdout)
 	}
 	for _, job := range report.Jobs {
-		if !job.Installed || !job.InSync || !job.CatchUp || !job.Hidden || job.LastResultWords == "" {
+		if !job.Installed || !job.InSync || !job.CatchUp || !job.NoWindow || job.LastResultWords == "" {
 			t.Errorf("%+v", job)
 		}
 	}

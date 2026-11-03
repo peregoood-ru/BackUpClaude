@@ -306,3 +306,45 @@ func TestRunStartsTheNamedTask(t *testing.T) {
 		t.Errorf("call = %v", f.calls[0])
 	}
 }
+
+const testHost = `C:\Windows\System32\conhost.exe`
+
+// A console program run by the scheduler shows its window even in a hidden task.
+// The task must go through conhost --headless, and read back as the plain task.
+func TestConsoleWindowIsAvoidedWithAHeadlessHost(t *testing.T) {
+	f := &fake{}
+	s := f.scheduler(t)
+	s.quietHost = testHost
+	task := taskNamed(t, JobClaude)
+	if err := s.Install(task); err != nil {
+		t.Fatal(err)
+	}
+	units := make([]uint16, 0, len(f.files[0])/2)
+	for i := 2; i+1 < len(f.files[0]); i += 2 {
+		units = append(units, uint16(f.files[0][i])|uint16(f.files[0][i+1])<<8)
+	}
+	text := string(utf16.Decode(units))
+	if !strings.Contains(text, "<Command>"+testHost+"</Command>") ||
+		!strings.Contains(text, `<Arguments>--headless &#34;D:\Program Files\Бэкап\backupclaude.exe&#34; run --job claude</Arguments>`) {
+		t.Errorf("definition:\n%s", text)
+	}
+
+	s.exec = func(args ...string) ([]byte, error) {
+		if args[len(args)-1] == "/XML" && args[2] == `\BackUpClaude\claude` {
+			return []byte(text), nil
+		}
+		return nil, errors.New("exit status 1")
+	}
+	list, err := s.List()
+	if err != nil || len(list) != 1 {
+		t.Fatalf("list=%+v err=%v", list, err)
+	}
+	if got := list[0]; got.Command != task.Command || !slices.Equal(got.Args, task.Args) || !got.Headless {
+		t.Errorf("read back %+v", got.Task)
+	}
+
+	plain := (&fake{}).scheduler(t) // no host: older Windows
+	if err := plain.Install(task); err != nil {
+		t.Fatal(err)
+	}
+}

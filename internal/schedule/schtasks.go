@@ -24,6 +24,31 @@ type schtasks struct {
 	// %TEMP% than the one the scheduler's tools use.
 	workDir string
 	now     func() time.Time
+	// quietHost is a program that runs a console program without a window:
+	// conhost.exe --headless. The scheduler shows the console window of a console
+	// program even for a hidden task, and the window is on the screen for the
+	// whole run. Empty means no such program: the task then runs as it is.
+	quietHost string
+}
+
+const headlessFlag = "--headless"
+
+// hidden wraps a task so that its console window never appears.
+func (s *schtasks) hidden(task Task) Task {
+	if s.quietHost == "" {
+		return task
+	}
+	args := append([]string{headlessFlag, task.Command}, task.Args...)
+	task.Command, task.Args = s.quietHost, args
+	return task
+}
+
+// shown is the reverse of hidden, so that a task read back looks as planned.
+func (s *schtasks) shown(info *Info) {
+	if s.quietHost == "" || !strings.EqualFold(info.Command, s.quietHost) || len(info.Args) < 2 || info.Args[0] != headlessFlag {
+		return
+	}
+	info.Command, info.Args, info.Headless = info.Args[1], info.Args[2:], true
 }
 
 func (s *schtasks) fail(action, name string, err error, output []byte) error {
@@ -42,7 +67,7 @@ func (s *schtasks) Install(task Task) error {
 	if err != nil {
 		return i18n.E("schedule.no_user").Hint("schedule.no_user.hint").Because(err)
 	}
-	definition, err := buildXML(task, user, s.now())
+	definition, err := buildXML(s.hidden(task), user, s.now())
 	if err != nil {
 		return err
 	}
@@ -106,6 +131,7 @@ func (s *schtasks) List() ([]Info, error) {
 		if err != nil {
 			return nil, s.fail("query", name, err, nil)
 		}
+		s.shown(&info)
 		if runtime, err := s.exec("/Query", "/TN", taskPath(name), "/FO", "CSV", "/NH", "/V"); err == nil {
 			info.fillRuntime(runtime)
 		}
