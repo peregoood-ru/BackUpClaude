@@ -186,6 +186,9 @@ func (a *app) runJob(ctx context.Context, current *session, job string, notifier
 		}
 		return summaries, nil
 
+	case schedule.JobRestoreTest:
+		return a.runRestoreTest(ctx, current)
+
 	case schedule.JobCleanup:
 		current.restic.RetryLock = maintenanceLockWait
 		if err := current.restic.Unlock(ctx); err != nil {

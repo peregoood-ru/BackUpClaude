@@ -34,7 +34,7 @@ func TestParseFillsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Schedule != (Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168, SummaryEveryHours: 168}) {
+	if cfg.Schedule != (Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168, SummaryEveryHours: 168, RestoreTestEveryHours: 672}) {
 		t.Errorf("schedule defaults: %+v", cfg.Schedule)
 	}
 	if cfg.Retention != (Retention{Hourly: 48, Daily: 30, Weekly: 12, Monthly: 24}) {

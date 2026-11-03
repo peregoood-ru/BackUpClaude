@@ -50,12 +50,33 @@ func TestPlanFollowsTheSettings(t *testing.T) {
 }
 
 func TestDefaultPlan(t *testing.T) {
-	cases := map[string]time.Duration{JobClaude: time.Hour, JobProjects: 24 * time.Hour, JobCleanup: 168 * time.Hour, JobCheck: 168 * time.Hour, JobSummary: 168 * time.Hour}
+	cases := map[string]time.Duration{
+		JobClaude: time.Hour, JobProjects: 24 * time.Hour, JobCleanup: 168 * time.Hour, JobCheck: 168 * time.Hour,
+		JobSummary: 168 * time.Hour, JobRestoreTest: 4 * 168 * time.Hour,
+	}
 	for name, every := range cases {
 		task := taskNamed(t, name)
 		if task.Every != every || !slices.Equal(task.Args, []string{"run", "--job", name}) {
 			t.Errorf("%s: %+v", name, task)
 		}
+	}
+}
+
+// The trial restore runs every four weeks on Sunday, between the weekly check
+// and the summary that reports it.
+func TestRestoreTestEveryFourWeeks(t *testing.T) {
+	definition, err := buildXML(taskNamed(t, JobRestoreTest), "S-1-5-21-1-2-3-1001", monday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"<WeeksInterval>4</WeeksInterval>", "<Sunday />", "T08:00:00</StartBoundary>", `<Arguments>run --job restore-test</Arguments>`} {
+		if !strings.Contains(definition, want) {
+			t.Errorf("missing %s in %s", want, definition)
+		}
+	}
+	info, err := parseXML(JobRestoreTest, []byte(definition))
+	if err != nil || info.Every != 4*7*24*time.Hour || info.Weekday != time.Sunday {
+		t.Errorf("read back %+v, %v", info, err)
 	}
 }
 

@@ -96,11 +96,29 @@ type Restic struct {
 	// RetryLock makes restic wait this long for a repository that another run
 	// holds, instead of failing at once. Zero means no waiting.
 	RetryLock time.Duration
+	// Options are extended options, each passed as -o, such as the path of
+	// rclone for an rclone: repository.
+	Options []string
+	// typed is a password the person typed, for a repository whose password is
+	// not in this computer's key store yet (a new computer). It reaches restic
+	// on its standard input only: never an argument, a variable or a file.
+	typed []byte
+}
+
+// UseTypedPassword makes restic read the password from its standard input
+// instead of the key store. restic reads one line from stdin when stdin is not
+// a terminal.
+func (r *Restic) UseTypedPassword(password string) {
+	r.typed = []byte(password + "\n")
+	r.PasswordCommand = ""
 }
 
 // lockingCommands are the restic commands that take a lock a running backup or
 // cleanup can block.
-var lockingCommands = map[string]bool{"backup": true, "forget": true, "prune": true, "check": true, "snapshots": true, "stats": true}
+var lockingCommands = map[string]bool{
+	"backup": true, "forget": true, "prune": true, "check": true, "snapshots": true, "stats": true,
+	"ls": true, "find": true, "restore": true,
+}
 
 // PasswordCommand builds a --password-command value. restic splits it like a
 // shell does and treats a backslash outside quotes as a separator, so Windows
@@ -149,6 +167,9 @@ func (r *Restic) repoArgs(command string, args ...string) []string {
 	if r.CacheDir != "" {
 		full = append(full, "--cache-dir", r.CacheDir)
 	}
+	for _, option := range r.Options {
+		full = append(full, "-o", option)
+	}
 	if r.RetryLock > 0 && lockingCommands[command] {
 		full = append(full, "--retry-lock", r.RetryLock.String())
 	}
@@ -163,6 +184,9 @@ func (r *Restic) run(ctx context.Context, args []string, onLine, onErrorLine fun
 	cmd.WaitDelay = killWaitDelay
 	stderr := &tailBuffer{limit: stderrTailLimit}
 	cmd.Stderr = stderr
+	if r.typed != nil {
+		cmd.Stdin = bytes.NewReader(r.typed)
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return i18n.E("engine.restic.start_failed", r.Binary).Because(err)
@@ -387,6 +411,11 @@ type RestoreOptions struct {
 	Subfolder string
 	Target    string
 	Includes  []string
+	// IncludeFile holds include patterns, one per line, relative to Subfolder.
+	IncludeFile string
+	// Verify makes restic read every restored file back and compare it with
+	// the repository.
+	Verify bool
 }
 
 // Restore writes a snapshot to the target folder. On failure the error names
@@ -396,9 +425,17 @@ func (r *Restic) Restore(ctx context.Context, opts RestoreOptions) (*RestoreSumm
 	if opts.Subfolder != "" {
 		snapshot += ":" + opts.Subfolder
 	}
-	args := []string{snapshot, "--target", opts.Target}
+	// Never overwrite: restore only ever adds files, even when the target
+	// folder already holds some.
+	args := []string{snapshot, "--target", opts.Target, "--overwrite", "never"}
 	for _, pattern := range opts.Includes {
 		args = append(args, "--include", pattern)
+	}
+	if opts.IncludeFile != "" {
+		args = append(args, "--include-file", opts.IncludeFile)
+	}
+	if opts.Verify {
+		args = append(args, "--verify")
 	}
 	var summary *RestoreSummary
 	var failed []ItemError
@@ -444,8 +481,15 @@ func withItems(message string, items []ItemError) string {
 // nothing is collected here. restic stops at the direct children of a given path
 // unless told otherwise, so the walk asks for the whole tree.
 func (r *Restic) Ls(ctx context.Context, snapshot string, paths []string, onNode func(Node)) error {
+	return r.Nodes(ctx, snapshot, paths, len(paths) > 0, onNode)
+}
+
+// Nodes is Ls with the depth chosen: without recursive, each given path comes
+// with its direct children only, which tells cheaply whether it is a file or a
+// folder.
+func (r *Restic) Nodes(ctx context.Context, snapshot string, paths []string, recursive bool, onNode func(Node)) error {
 	args := make([]string, 0, len(paths)+2)
-	if len(paths) > 0 {
+	if recursive {
 		args = append(args, "--recursive")
 	}
 	args = append(append(args, snapshot), paths...)
@@ -454,6 +498,50 @@ func (r *Restic) Ls(ctx context.Context, snapshot string, paths []string, onNode
 			onNode(node)
 		}
 	}, nil)
+}
+
+// FindResult is what restic find reports for one snapshot.
+type FindResult struct {
+	Snapshot string `json:"snapshot"`
+	Matches  []Node `json:"matches"`
+}
+
+// Find looks for names matching any of the patterns in every snapshot with the
+// tag, or only in the given snapshots, in a single run. A matched folder comes
+// with everything inside it.
+func (r *Restic) Find(ctx context.Context, patterns []string, tag string, snapshots []string) ([]FindResult, error) {
+	args := []string{}
+	if tag != "" {
+		args = append(args, "--tag", tag)
+	}
+	for _, snapshot := range snapshots {
+		args = append(args, "--snapshot", snapshot)
+	}
+	args = append(append(args, "--"), patterns...)
+	var output bytes.Buffer
+	err := r.run(ctx, r.repoArgs("find", args...), func(line []byte) {
+		output.Write(line)
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	if output.Len() == 0 {
+		return nil, nil
+	}
+	var results []FindResult
+	if err := json.Unmarshal(output.Bytes(), &results); err != nil {
+		return nil, i18n.E("engine.restic.bad_output").Because(err)
+	}
+	for i := range results {
+		for j := range results[i].Matches {
+			results[i].Matches[j].Name = pathBase(results[i].Matches[j].Path)
+		}
+	}
+	return results, nil
+}
+
+func pathBase(snapshotPath string) string {
+	return snapshotPath[strings.LastIndex(snapshotPath, "/")+1:]
 }
 
 // Snapshots lists snapshots, optionally only those with a tag.

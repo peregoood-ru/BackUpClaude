@@ -57,7 +57,22 @@ type Desktop struct {
 	Include   []string `json:"include"`
 	Exclude   []string `json:"exclude"`
 	// LockedOK names items whose locked files are a warning, not a failure.
+	// The same items are what a restore may put back only while the application
+	// is closed: it keeps these databases open and writes them back.
 	LockedOK []string `json:"locked_ok"`
+	// Processes tell whether the application is running.
+	Processes Processes `json:"processes"`
+}
+
+// Processes identify the running desktop application.
+type Processes struct {
+	// Names are executable names, compared without regard to case.
+	Names []string `json:"names"`
+	// PathMarkers tell the application from another program of the same name,
+	// such as the Claude Code command line: the path of the executable must
+	// contain one of them (forward slashes, any case). Empty means the name is
+	// enough.
+	PathMarkers []string `json:"path_markers"`
 }
 
 // Projects says what counts as a project and what to leave out of one.

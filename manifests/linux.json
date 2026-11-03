@@ -16,7 +16,8 @@
     "cowork_dir": "local-agent-mode-sessions",
     "include": ["claude-code-sessions", "local-agent-mode-sessions", "config.json", "claude_desktop_config.json", "Local Storage", "IndexedDB"],
     "exclude": ["vm_bundles", "claude-code", "claude-code-vm", "Partitions", "Cache", "Code Cache", "GPUCache", "logs", "Crashpad", "sentry", "Network"],
-    "locked_ok": ["Local Storage", "IndexedDB"]
+    "locked_ok": ["Local Storage", "IndexedDB"],
+    "processes": {"names": ["claude-desktop", "Claude"], "path_markers": []}
   },
   "never": [".credentials.json", "vm_bundles", "node_modules", ".venv", "venv", "__pycache__"],
   "projects": {

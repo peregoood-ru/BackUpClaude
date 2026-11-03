@@ -14,11 +14,13 @@ const (
 	JobCheck    = "check"
 	// JobSummary sends the weekly summary of the state.
 	JobSummary = "summary"
+	// JobRestoreTest proves every four weeks that the copies can be restored.
+	JobRestoreTest = "restore-test"
 )
 
 // JobNames lists the jobs in the order they are shown.
 func JobNames() []string {
-	return []string{JobClaude, JobProjects, JobCleanup, JobCheck, JobSummary}
+	return []string{JobClaude, JobProjects, JobCleanup, JobCheck, JobRestoreTest, JobSummary}
 }
 
 // Plan turns the settings into the tasks to install. executable is the full
@@ -38,6 +40,8 @@ func Plan(cfg *config.Config, executable string) []Task {
 		job(JobProjects, hours(cfg.Schedule.ProjectsEveryHours), at(3, 30), 12*time.Hour),
 		job(JobCleanup, hours(cfg.Schedule.CleanupEveryHours), at(4, 0), 12*time.Hour),
 		job(JobCheck, hours(cfg.Schedule.CheckEveryHours), at(7, 0), 6*time.Hour),
+		// After the check and before the summary: the summary reports the result.
+		job(JobRestoreTest, hours(cfg.Schedule.RestoreTestEveryHours), at(8, 0), 6*time.Hour),
 		// After the weekly check, so that the summary can report its result.
 		job(JobSummary, hours(cfg.Schedule.SummaryEveryHours), at(9, 0), time.Hour),
 	}
