@@ -6,7 +6,7 @@
 
 BackUpClaude keeps your Claude data and your projects safe: Claude's sessions, memory and settings every hour, project folders every day, in two encrypted copies, one on a local disk and one in external storage. It is a single file with no dependencies to install. Backups are done by [restic](https://github.com/restic/restic) and [rclone](https://github.com/rclone/rclone), which it installs itself, at pinned versions with verified hashes.
 
-**Status: early development.** Manual snapshots work: `backup` saves Claude's data and the projects it finds to the local repository, and `list` shows what is there. Schedules, the external copy and restore arrive at the next stages. Do not rely on it yet.
+**Status: early development.** Snapshots to the local repository run on a schedule, `restore` brings back a session, a project or everything, and a trial restore checks the copy every four weeks. The external copy and the setup wizard arrive at the next stages. Do not rely on it yet.
 
 ## Commands
 
@@ -20,7 +20,7 @@ BackUpClaude keeps your Claude data and your projects safe: Claude's sessions, m
 | `backupclaude status` | Whether the data is safe, in plain words: age of the newest snapshot in each copy, size, free space, last check, failures | works |
 | `backupclaude notify` | Set up where failure messages go (`telegram`, `webhook`, `test`, `remove`) | works |
 | `backupclaude setup` | Setup wizard | planned |
-| `backupclaude restore` | Bring back a session, a project or everything | planned |
+| `backupclaude restore` | Bring back a session (`--session`), a project (`--project`) or everything (`--all`) into a new folder; `--apply` also puts the missing files back in place and never replaces existing ones. See [docs/restore.md](docs/restore.md) | works |
 | `backupclaude ui` | Open the page in a browser | planned |
 | `backupclaude update` | Update the application | planned |
 | `backupclaude uninstall` | Remove the application, copies stay | planned |
@@ -30,6 +30,10 @@ Add `--json` to any command for scripts, and `--lang ru` or `--lang en` to choos
 ## Notifications
 
 A failed scheduled job is reported to you once, a successful run never is. The same goes for a sudden fall in the number of Claude sessions (more than `notify.deletion_drop_percent` since the previous run, 20 by default) and for a Claude folder that was there and is gone, which is what a move after an update looks like. Once a week a summary arrives even when all is well. Channels are Telegram (the bot token is kept in the system key store, the chat id in `config.json`) and a webhook (its address is kept in the key store). Without a channel the program works and says nothing; `status` shows the same facts.
+
+## Restore
+
+Without flags at a terminal, `backupclaude restore` asks what to bring back and lists the latest sessions. Step-by-step instructions for a lost session, a damaged project and a new computer are in [docs/restore.md](docs/restore.md).
 
 ## What is saved
 

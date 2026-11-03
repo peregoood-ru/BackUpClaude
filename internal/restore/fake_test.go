@@ -22,7 +22,6 @@ import (
 type fakeRepo struct {
 	dir       string
 	snapshots []engine.Snapshot
-	restores  []engine.RestoreOptions
 }
 
 func newFakeRepo(t *testing.T) *fakeRepo {
@@ -153,7 +152,6 @@ func (f *fakeRepo) Find(_ context.Context, patterns []string, _ string, only []s
 }
 
 func (f *fakeRepo) Restore(_ context.Context, opts engine.RestoreOptions) (*engine.RestoreSummary, error) {
-	f.restores = append(f.restores, opts)
 	includes := append([]string(nil), opts.Includes...)
 	if opts.IncludeFile != "" {
 		file, err := os.Open(opts.IncludeFile)

@@ -23,6 +23,9 @@ const (
 	SkipDesktopMissing = "desktop_missing"
 	SkipDriveMissing   = "drive_missing"
 	SkipNotFile        = "not_a_file"
+	// SkipDatabaseExists is a database of the desktop application that exists
+	// here: it is taken or left whole, never mixed with the copy's files.
+	SkipDatabaseExists = "database_exists"
 )
 
 // rewriteLimit is the largest file whose paths are rewritten. Settings and
@@ -65,6 +68,8 @@ type Skipped struct {
 type ApplyPlan struct {
 	Copies  []Copy    `json:"copies"`
 	Skipped []Skipped `json:"skipped"`
+
+	databases map[string]bool
 }
 
 // Locked reports whether the plan writes into a database of the desktop
@@ -83,7 +88,7 @@ func (p *ApplyPlan) Locked() bool {
 // file is never replaced, whatever its content. That rule is Claude Vault's (see
 // NOTICE).
 func PlanApply(target string, pieces []Piece, place Placement) (*ApplyPlan, error) {
-	plan := &ApplyPlan{}
+	plan := &ApplyPlan{databases: map[string]bool{}}
 	seen := map[string]bool{}
 	for _, piece := range pieces {
 		root := StagedPath(target, piece.Root)
@@ -147,11 +152,23 @@ func (p *ApplyPlan) place(staged, snapshotPath string, size int64, place Placeme
 			return
 		}
 	}
-	if _, err := os.Lstat(dest); err == nil {
+	database, locked := lockedRoot(snapshotPath, place)
+	if locked {
+		// A database comes back whole or not at all: files of two databases in
+		// one folder make neither of them work.
+		if databaseDest, ok := destination(database, place); ok && exists(databaseDest) {
+			if !p.databases[databaseDest] {
+				p.databases[databaseDest] = true
+				p.Skipped = append(p.Skipped, Skipped{Path: databaseDest, Reason: SkipDatabaseExists})
+			}
+			return
+		}
+	}
+	if exists(dest) {
 		p.Skipped = append(p.Skipped, Skipped{Path: dest, Reason: SkipExists, Differs: differs(staged, dest)})
 		return
 	}
-	item := Copy{From: staged, To: dest, Size: size, Locked: lockedPath(snapshotPath, place)}
+	item := Copy{From: staged, To: dest, Size: size, Locked: locked}
 	item.Rewrite = !place.Mapper.Identity() && size <= rewriteLimit &&
 		rewriteExtensions[strings.ToLower(filepath.Ext(dest))] && claudeData(snapshotPath, place)
 	p.Copies = append(p.Copies, item)
@@ -177,15 +194,22 @@ func destination(snapshotPath string, place Placement) (string, bool) {
 	return place.Mapper.Map(LocalPath(snapshotPath))
 }
 
-func lockedPath(snapshotPath string, place Placement) bool {
+// lockedRoot returns the database folder of the desktop application that holds
+// snapshotPath, if any.
+func lockedRoot(snapshotPath string, place Placement) (string, bool) {
 	for _, root := range place.Origin.Desktop {
 		for _, name := range place.Manifest.Desktop.LockedOK {
-			if Within(path.Join(root, name), snapshotPath) {
-				return true
+			if database := path.Join(root, name); Within(database, snapshotPath) {
+				return database, true
 			}
 		}
 	}
-	return false
+	return "", false
+}
+
+func exists(path string) bool {
+	_, err := os.Lstat(path)
+	return err == nil
 }
 
 // claudeData reports whether a file is Claude's own: only those have their

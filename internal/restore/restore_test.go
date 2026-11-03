@@ -267,6 +267,37 @@ func TestLockedDatabasesAreMarked(t *testing.T) {
 	}
 }
 
+// A database of the desktop application is taken whole or not at all: here it
+// exists with one file fewer than in the copy, and nothing of it is copied.
+func TestAnExistingDatabaseIsNotMixed(t *testing.T) {
+	w := newWorld(t)
+	fakehome.Remove(t, filepath.Join(w.store, "Local Storage", "leveldb", "000003.log"))
+	pieces, err := PiecesOf(context.Background(), w.repo, w.claude, TagClaude, RootsOf(w.claude))
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "restored")
+	if _, err := Fetch(context.Background(), w.repo, pieces, target); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := PlanApply(target, pieces, identity(t, w))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Locked() || len(plan.Copies) != 0 {
+		t.Errorf("copies = %+v", plan.Copies)
+	}
+	databases := 0
+	for _, skipped := range plan.Skipped {
+		if skipped.Reason == SkipDatabaseExists {
+			databases++
+		}
+	}
+	if databases != 3 { // Local Storage of both folders, IndexedDB of the classic one
+		t.Errorf("skipped = %+v", plan.Skipped)
+	}
+}
+
 // Another computer: another user name with Cyrillic letters, the project on
 // another drive or folder. Claude's paths move with the home folder, the
 // transcripts folder is renamed after the new project path, paths inside

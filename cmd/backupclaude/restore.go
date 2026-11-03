@@ -159,7 +159,7 @@ func (a *app) openRestoreSource(ctx context.Context, options restoreOptions) (*r
 	current, err := a.openSession()
 	if err != nil {
 		if config.IsMissing(err) {
-			return nil, i18n.E("restore.no_settings").Hint("restore.no_settings.hint").Because(err)
+			return nil, i18n.E("restore.no_settings").Hint("restore.no_settings.hint")
 		}
 		return nil, err
 	}
@@ -576,7 +576,7 @@ func (a *app) applyRestore(source *restoreSource, snapshots []engine.Snapshot, s
 		running, err := a.desktopRunning(source.manifest)
 		if err != nil || len(running) > 0 {
 			report.Running = running
-			return report, i18n.E("restore.claude_running", target).Hint("restore.claude_running.hint")
+			return report, i18n.E("restore.claude_running", firstLocked(plan), target).Hint("restore.claude_running.hint")
 		}
 	}
 	for _, item := range plan.Copies {
@@ -595,6 +595,16 @@ func (a *app) applyRestore(source *restoreSource, snapshots []engine.Snapshot, s
 }
 
 const maxExamples = 10
+
+// firstLocked names the first database file a plan would write.
+func firstLocked(plan *restore.ApplyPlan) string {
+	for _, item := range plan.Copies {
+		if item.Locked {
+			return item.To
+		}
+	}
+	return ""
+}
 
 // desktopRunning lists the processes of the desktop application.
 func (a *app) desktopRunning(manifest *manifests.Manifest) ([]sysproc.Process, error) {
@@ -700,7 +710,9 @@ func (a *app) printApply(w io.Writer, apply *applyReport) {
 	if apply.Planned > len(apply.Written) {
 		fmt.Fprintln(w, "    "+a.tr.T("restore.apply.more", apply.Planned-len(apply.Written)))
 	}
-	fmt.Fprintln(w, a.tr.T("restore.apply.existing", apply.Existing, apply.Differ))
+	if apply.Existing > 0 {
+		fmt.Fprintln(w, a.tr.T("restore.apply.existing", apply.Existing, apply.Differ))
+	}
 	reasons := make([]string, 0, len(apply.Skipped))
 	for reason := range apply.Skipped {
 		reasons = append(reasons, reason)
