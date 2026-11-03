@@ -11,5 +11,9 @@ func Contain() (*Group, error) { return &Group{}, nil }
 
 func (g *Group) peak() uint64 { return 0 }
 
-// Close does nothing here.
-func (g *Group) Close() {}
+// Close forgets the handle, which is never set here.
+func (g *Group) Close() {
+	if g != nil {
+		g.handle = 0
+	}
+}
