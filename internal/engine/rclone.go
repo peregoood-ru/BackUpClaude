@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -29,4 +30,23 @@ func parseRcloneVersion(output string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimPrefix(fields[1], "v"), true
+}
+
+// ListRemotes returns the names of the remotes in an rclone settings file,
+// without the colon. A missing file has none.
+func ListRemotes(ctx context.Context, binary, configFile string) ([]string, error) {
+	if _, err := os.Stat(configFile); err != nil {
+		return nil, nil
+	}
+	output, err := exec.CommandContext(ctx, binary, "listremotes", "--config", configFile).Output()
+	if err != nil {
+		return nil, i18n.E("engine.rclone.failed", binary).Because(err)
+	}
+	var remotes []string
+	for _, line := range strings.Split(string(output), "\n") {
+		if name := strings.TrimSuffix(strings.TrimSpace(line), ":"); name != "" {
+			remotes = append(remotes, name)
+		}
+	}
+	return remotes, nil
 }
