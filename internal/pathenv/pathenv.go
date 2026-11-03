@@ -4,7 +4,7 @@
 package pathenv
 
 import (
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -61,15 +61,16 @@ func split(value string) []string {
 	return entries
 }
 
-// same compares two folders the way Windows does: case does not matter, and a
-// trailing separator does not count.
+// same compares two folders the way Windows does: case does not matter, both
+// kinds of slash count, and a trailing separator does not. It works the same on
+// every system, since a Windows PATH is read by tests everywhere.
 func same(a, b string) bool {
-	clean := func(path string) string {
-		path = strings.Trim(strings.TrimSpace(path), `"`)
-		if path == "" {
+	clean := func(value string) string {
+		value = strings.Trim(strings.TrimSpace(value), `"`)
+		if value == "" {
 			return ""
 		}
-		return strings.ToLower(filepath.Clean(path))
+		return strings.ToLower(path.Clean(strings.ReplaceAll(value, `\`, "/")))
 	}
 	return clean(a) != "" && clean(a) == clean(b)
 }

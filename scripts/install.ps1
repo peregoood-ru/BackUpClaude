@@ -33,6 +33,9 @@
 .PARAMETER NoPath
   Do not change the PATH.
 
+.PARAMETER ApiBase
+  The address of the GitHub API. Only for tests against a local server.
+
 .PARAMETER Repo
   owner/name of the repository with the releases.
 #>
@@ -42,7 +45,8 @@ param(
   [string]$Sha256 = '',
   [switch]$NoSetup,
   [switch]$NoPath,
-  [string]$Repo = 'peregoood-ru/BackUpClaude'
+  [string]$Repo = 'peregoood-ru/BackUpClaude',
+  [string]$ApiBase = 'https://api.github.com'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,20 +63,36 @@ function Fail([string]$message) {
 # private repository. The API answers with a redirect to a signed address; the
 # token must not travel there, so the redirect is followed by hand.
 function Get-Asset([string]$url, [hashtable]$headers, [string]$outFile) {
-  $assetHeaders = $headers + @{ Accept = 'application/octet-stream' }
+  # HttpWebRequest does not follow redirects by itself here, in Windows
+  # PowerShell and in PowerShell 7 alike.
+  $request = [Net.HttpWebRequest]::Create($url)
+  $request.AllowAutoRedirect = $false
+  $request.UserAgent = 'BackUpClaude-installer'
+  $request.Accept = 'application/octet-stream'
+  foreach ($name in $headers.Keys) {
+    if ($name -ne 'User-Agent' -and $name -ne 'Accept') { $request.Headers.Add($name, [string]$headers[$name]) }
+  }
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri $url -Headers $assetHeaders -MaximumRedirection 0 -OutFile $outFile
-  } catch {
+    $response = $request.GetResponse()
+  } catch [Net.WebException] {
     $response = $_.Exception.Response
-    $status = 0
-    if ($response) { $status = [int]$response.StatusCode }
+    if (-not $response) { Fail "Cannot download ${url}: $($_.Exception.Message)" }
+  }
+  try {
+    $status = [int]$response.StatusCode
     if ($status -ge 300 -and $status -lt 400) {
       $location = [string]$response.Headers['Location']
       if (-not $location) { Fail 'The release server redirected without an address.' }
       Invoke-WebRequest -UseBasicParsing -Uri $location -OutFile $outFile
+    } elseif ($status -eq 200) {
+      $source = $response.GetResponseStream()
+      $output = [IO.File]::Create($outFile)
+      try { $source.CopyTo($output) } finally { $output.Dispose(); $source.Dispose() }
     } else {
-      Fail "Cannot download ${url}: $($_.Exception.Message)"
+      Fail "Cannot download ${url}: the server answered $status."
     }
+  } finally {
+    $response.Close()
   }
 }
 
@@ -104,7 +124,7 @@ try {
 
     Write-Host "Looking for the release in $Repo ..."
     try {
-      $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=30" -Headers ($headers + @{ Accept = 'application/vnd.github+json' })
+      $releases = Invoke-RestMethod -Uri "$ApiBase/repos/$Repo/releases?per_page=30" -Headers ($headers + @{ Accept = 'application/vnd.github+json' })
     } catch {
       $status = 0
       if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }

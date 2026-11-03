@@ -16,15 +16,16 @@ import (
 	"github.com/peregoood-ru/BackUpClaude/internal/i18n"
 	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
+	"github.com/peregoood-ru/BackUpClaude/internal/selfinstall"
 	"github.com/peregoood-ru/BackUpClaude/internal/skill"
 	"github.com/peregoood-ru/BackUpClaude/internal/syncdir"
 )
 
 // fakePath is a PATH that lives in memory.
 type fakePath struct {
-	dirs                 []string
-	adds, removes        int
-	unsupported, failAdd bool
+	dirs          []string
+	adds, removes int
+	unsupported   bool
 }
 
 func (f *fakePath) Supported() bool { return !f.unsupported }
@@ -70,7 +71,7 @@ func newSetupWorld(t *testing.T) *setupWorld {
 	t.Setenv(envFakeRestic, dir)
 	t.Setenv(envFakeMode, "norepo")
 	// A program file that can be copied.
-	w.exe = filepath.Join(t.TempDir(), "download", "backupclaude.exe")
+	w.exe = filepath.Join(t.TempDir(), "download", selfinstall.Name())
 	fakehome.Write(t, w.exe, "program v1")
 	return &setupWorld{w, dir}
 }
@@ -146,7 +147,7 @@ func TestSetupDoesItAllWithoutQuestions(t *testing.T) {
 		t.Errorf("%+v", report.Password)
 	}
 	// Six tasks, pointing to the installed program.
-	target := filepath.Join(layout.BinDir(), filepath.Base(w.exe))
+	target := selfinstall.Target(layout.BinDir())
 	sched := w.sched.(*fakeScheduler)
 	if len(sched.tasks) != len(schedule.JobNames()) || sched.tasks["claude"].Command != target {
 		t.Errorf("tasks: %+v", sched.tasks)
@@ -422,7 +423,7 @@ func TestSetupInstallsTheProgramOnceAndPutsItOnThePath(t *testing.T) {
 	}
 	report := w.report(t, r)
 	layout, _ := config.Resolve()
-	target := filepath.Join(layout.BinDir(), filepath.Base(w.exe))
+	target := selfinstall.Target(layout.BinDir())
 	if report.Program == nil || report.Program.Path != target || !report.Program.Placed || !report.Program.PathChanged || !report.Program.InPath {
 		t.Fatalf("%+v", report.Program)
 	}
@@ -522,7 +523,7 @@ func TestSetupRerunLeavesAWorkingInstallationAlone(t *testing.T) {
 	if step, _ := stepByID(report, "program"); step.Status != stepKept {
 		t.Errorf("%+v", step)
 	}
-	if _, err := os.Stat(filepath.Join(layout.BinDir(), filepath.Base(w.exe))); err == nil {
+	if _, err := os.Stat(selfinstall.Target(layout.BinDir())); err == nil {
 		t.Error("the program was copied although the tasks run another one")
 	}
 	if fp := w.path.(*fakePath); fp.adds != 0 {
@@ -599,7 +600,7 @@ func TestSetupMovesTheProgramOnRequest(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("%+v", r)
 	}
-	target := filepath.Join(layout.BinDir(), filepath.Base(w.exe))
+	target := selfinstall.Target(layout.BinDir())
 	sched := w.sched.(*fakeScheduler)
 	for name, task := range sched.tasks {
 		if task.Command != target {
