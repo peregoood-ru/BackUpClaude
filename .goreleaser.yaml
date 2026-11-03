@@ -29,6 +29,8 @@ builds:
 
 archives:
   - id: default
+    # The update command and install.ps1 look for exactly this name.
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     formats:
       - tar.gz
     format_overrides:
@@ -48,5 +50,9 @@ changelog:
   disable: true
 
 release:
+  # A draft until the maintainer publishes it.
   draft: true
   prerelease: auto
+  extra_files:
+    # The install command of the README: irm .../releases/latest/download/install.ps1 | iex
+    - glob: scripts/install.ps1

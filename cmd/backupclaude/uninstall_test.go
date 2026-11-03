@@ -17,7 +17,7 @@ import (
 func installed(t *testing.T, w *setupWorld) (repo string) {
 	t.Helper()
 	repo = w.localRepo(t)
-	token := "123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
+	token := "123456:test-token-for-unit-tests"
 	w.stdin = token + "\n"
 	r := w.run("setup", "--yes", "--json", "--local", repo, "--install", "--skill", "--telegram-chat-id", "42", "--telegram-token-stdin")
 	if r.code != 0 {

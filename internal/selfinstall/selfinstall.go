@@ -6,11 +6,14 @@ package selfinstall
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/i18n"
 )
@@ -88,18 +91,41 @@ func stage(source, target string) (string, error) {
 	return out.Name(), nil
 }
 
-// Swap moves the file staged next to target into place. If target exists it is
-// renamed to target.old first; if the second rename fails the old file comes
-// back. The staged file must sit in the same folder as target.
-func Swap(staged, target string) error {
-	old := target + oldSuffix
-	_ = os.Remove(old)
-	hadOld := true
-	if err := os.Rename(target, old); err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return i18n.E("selfinstall.swap_failed", target).Hint("selfinstall.swap_failed.hint").Because(err)
+// moveAside renames the file at path out of the way and returns the new name.
+// The usual name is path.old; if that cannot be freed, because a scanner or an
+// earlier leftover holds it, a name with a number is used.
+func moveAside(path string) (string, error) {
+	var last error
+	for i := 0; i < 20; i++ {
+		name := path + oldSuffix
+		if i > 0 {
+			name = fmt.Sprintf("%s%s-%d", path, oldSuffix, i)
 		}
-		hadOld = false
+		_ = os.Remove(name)
+		err := os.Rename(path, name)
+		if err == nil {
+			return name, nil
+		}
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
+		last = err
+		if i == 2 {
+			time.Sleep(300 * time.Millisecond)
+		}
+	}
+	return "", last
+}
+
+// Swap moves the file staged next to target into place. If target exists it is
+// renamed aside first (a running program can be renamed, not overwritten); if
+// the second rename fails the old file comes back. The staged file must sit in
+// the same folder as target.
+func Swap(staged, target string) error {
+	old, err := moveAside(target)
+	hadOld := err == nil
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return i18n.E("selfinstall.swap_failed", target).Hint("selfinstall.swap_failed.hint").Because(err)
 	}
 	if err := os.Rename(staged, target); err != nil {
 		if hadOld {
@@ -115,24 +141,31 @@ func Swap(staged, target string) error {
 // Stage copies an already unpacked file next to target, for Swap.
 func Stage(source, target string) (string, error) { return stage(source, target) }
 
-// CleanOld removes the file a swap left behind. It never reports a failure: a
+// CleanOld removes the files a swap left behind. It never reports a failure: a
 // file that is still running is simply tried again at the next start.
 func CleanOld(target string) {
-	_ = os.Remove(target + oldSuffix)
+	leftovers, _ := filepath.Glob(escapeGlob(target) + oldSuffix + "*")
+	for _, name := range leftovers {
+		_ = os.Remove(name)
+	}
+}
+
+// escapeGlob protects the characters of a path that a pattern would read.
+func escapeGlob(path string) string {
+	return strings.NewReplacer("[", "[[]", "*", "[*]", "?", "[?]").Replace(path)
 }
 
 // Remove deletes the program file at target. A running program cannot delete
-// itself on Windows: the file is renamed and the leftover is reported, so that
-// the caller can arrange its removal.
+// itself on Windows: the file is renamed and the new name is returned, so that
+// the caller can arrange its removal once the program has ended. If even the
+// rename is refused, the file itself is returned for the same purpose.
 func Remove(target string) (leftover string, err error) {
 	err = os.Remove(target)
 	if err == nil || errors.Is(err, fs.ErrNotExist) {
 		return "", nil
 	}
-	old := target + oldSuffix
-	_ = os.Remove(old)
-	if renameErr := os.Rename(target, old); renameErr != nil {
-		return "", i18n.E("selfinstall.remove_failed", target).Because(err)
+	if moved, moveErr := moveAside(target); moveErr == nil {
+		return moved, nil
 	}
-	return old, nil
+	return target, nil
 }

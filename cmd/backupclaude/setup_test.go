@@ -386,7 +386,7 @@ func TestSetupTellsPlainlyThereIsNoExternalCopy(t *testing.T) {
 
 func TestSetupTelegramFromTheInput(t *testing.T) {
 	w := newSetupWorld(t)
-	token := "123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
+	token := "123456:test-token-for-unit-tests"
 	w.stdin = token + "\n"
 	r := w.run("setup", "--yes", "--json", "--local", w.localRepo(t), "--no-install", "--telegram-chat-id", "777", "--telegram-token-stdin")
 	if r.code != 0 {
@@ -475,7 +475,7 @@ func existingInstallation(t *testing.T, w *setupWorld, program string) (before [
 	if err := w.store.Set(secrets.RepoPasswordKey, "TEST-TEST-TEST-TEST"); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.store.Set("telegram-bot-token", "123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"); err != nil {
+	if err := w.store.Set("telegram-bot-token", "123456:test-token-for-unit-tests"); err != nil {
 		t.Fatal(err)
 	}
 	sched := w.sched.(*fakeScheduler)
