@@ -74,6 +74,11 @@ type world struct {
 	syncProbe  func() syncdir.Probe
 	releases   func(token string) *update.Client
 	runProgram func(ctx context.Context, program string, args ...string) ([]byte, error)
+	// opened and spawned record the pages shown and the programs started.
+	opened  chan string
+	spawned chan []string
+	// autostart replaces the start of the icon at logon.
+	autostart *fakeAutostart
 }
 
 func newWorld(t *testing.T) *world {
@@ -88,6 +93,8 @@ func newWorld(t *testing.T) *world {
 		path:      &fakePath{},
 		drives:    func() []disk.Drive { return nil },
 		syncProbe: func() syncdir.Probe { return syncdir.Probe{} },
+		opened:    make(chan string, 8), spawned: make(chan []string, 8),
+		autostart: &fakeAutostart{},
 	}
 }
 
@@ -105,17 +112,23 @@ func (w *world) deps() dependencies {
 		env: func() (discover.Env, error) {
 			return discover.Env{Home: w.home, Lookup: fakehome.Lookup(w.home)}, nil
 		},
-		resticPath: w.resticPath(),
-		scheduler:  func(string) schedule.Scheduler { return w.sched },
-		lower:      func() error { w.lowered++; return nil },
-		contain:    func() (*sysproc.Group, error) { w.contained++; return &sysproc.Group{}, nil },
-		notify:     w.notify,
-		running:    func([]string, []string) ([]sysproc.Process, error) { return w.running, nil },
-		path:       w.path,
-		drives:     w.drives,
-		syncProbe:  w.syncProbe,
-		releases:   w.releases,
-		runProgram: w.runProgram,
+		resticPath:  w.resticPath(),
+		scheduler:   func(string) schedule.Scheduler { return w.sched },
+		lower:       func() error { w.lowered++; return nil },
+		contain:     func() (*sysproc.Group, error) { w.contained++; return &sysproc.Group{}, nil },
+		notify:      w.notify,
+		running:     func([]string, []string) ([]sysproc.Process, error) { return w.running, nil },
+		path:        w.path,
+		drives:      w.drives,
+		syncProbe:   w.syncProbe,
+		releases:    w.releases,
+		runProgram:  w.runProgram,
+		openBrowser: func(address string) error { w.opened <- address; return nil },
+		spawn: func(program string, args ...string) error {
+			w.spawned <- append([]string{program}, args...)
+			return nil
+		},
+		autostart: w.autostart,
 	}
 }
 
@@ -200,21 +213,6 @@ func TestPublicCommandsAreListed(t *testing.T) {
 	for _, name := range []string{resticPasswordCommand, "tools", "repo", "selftest", "measure", "verify"} {
 		if _, ok := found[name]; ok {
 			t.Errorf("%s should stay out of the public list", name)
-		}
-	}
-}
-
-func TestStubsExplainThemselves(t *testing.T) {
-	for _, name := range []string{"ui"} {
-		w := newWorld(t)
-		text := w.run(name)
-		if text.code != 3 || !strings.Contains(text.stderr, name) || !strings.Contains(text.stderr, "What to do:") {
-			t.Errorf("%s: %+v", name, text)
-		}
-		asJSON := w.run(name, "--json")
-		parsed := asJSON.envelope(t)
-		if asJSON.code != 3 || parsed.OK || parsed.Error == nil || parsed.Error.Code != "stub.not_ready" || parsed.Command != name {
-			t.Errorf("%s: %+v", name, asJSON)
 		}
 	}
 }

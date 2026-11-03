@@ -220,3 +220,29 @@ func TestNotifySettings(t *testing.T) {
 		}
 	}
 }
+
+func TestTrayIsOffByDefaultAndWrittenOnlyWhenOn(t *testing.T) {
+	cfg, err := Parse([]byte(validJSON(t)), "c.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Tray.Enabled {
+		t.Fatal("the icon must be off until the person turns it on")
+	}
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Contains(string(data), "tray") {
+		t.Errorf("a default setting is written out:\n%s", data)
+	}
+	cfg.Tray.Enabled = true
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	again, err := Load(path)
+	if err != nil || !again.Tray.Enabled {
+		t.Fatalf("%+v %v", again, err)
+	}
+}
