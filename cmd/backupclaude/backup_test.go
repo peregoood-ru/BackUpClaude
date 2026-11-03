@@ -43,6 +43,20 @@ func fakeRestic(dir, mode string) {
 	fmt.Fprintf(file, "%s\n", record)
 	_ = file.Close()
 	switch command {
+	case "unlock":
+		if mode == "unlock-fails" {
+			fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":10,"message":"repository does not exist"}`)
+			os.Exit(10)
+		}
+	case "forget":
+		fmt.Println(`[{"tags":["claude"],"host":"pc","paths":null,"keep":[{"short_id":"aaaaaaaa"}],"remove":[{"short_id":"bbbbbbbb"},{"short_id":"cccccccc"}],"reasons":[]}]`)
+	case "check":
+		if mode == "check-errors" {
+			fmt.Println(`{"message_type":"summary","num_errors":2,"broken_packs":null,"suggest_repair_index":false,"suggest_prune":false}`)
+			fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":1,"message":"repository contains errors"}`)
+			os.Exit(1)
+		}
+		fmt.Println(`{"message_type":"summary","num_errors":0,"broken_packs":null,"suggest_repair_index":false,"suggest_prune":false}`)
 	case "backup":
 		fakeBackup(os.Args, dir, mode)
 	case "snapshots":
@@ -147,7 +161,8 @@ func newBackupWorld(t *testing.T, mode string) *backupWorld {
 	return &backupWorld{w, dir}
 }
 
-func (w *backupWorld) calls(t *testing.T) []string {
+// allCalls lists every restic call, the removal of stale locks included.
+func (w *backupWorld) allCalls(t *testing.T) []string {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(w.dir, "calls.txt"))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -157,6 +172,19 @@ func (w *backupWorld) calls(t *testing.T) []string {
 		t.Fatal(err)
 	}
 	return strings.Split(strings.TrimSpace(string(data)), "\n")
+}
+
+// calls lists the restic calls except the removal of stale locks, which runs
+// before every backup and has its own tests.
+func (w *backupWorld) calls(t *testing.T) []string {
+	t.Helper()
+	var shown []string
+	for _, call := range w.allCalls(t) {
+		if !strings.HasPrefix(call, `["unlock"`) {
+			shown = append(shown, call)
+		}
+	}
+	return shown
 }
 
 func (w *backupWorld) report(t *testing.T, r result) backupReport {

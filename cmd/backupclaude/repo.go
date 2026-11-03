@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,10 @@ import (
 )
 
 const selftestTag = "selftest"
+
+// backupLockWait is how long a backup waits for a cleanup that holds the whole
+// repository. The next scheduled run tries again after that.
+const backupLockWait = 20 * time.Minute
 
 // session bundles what repository commands need.
 type session struct {
@@ -47,6 +52,7 @@ func (a *app) openSession() (*session, error) {
 		config: cfg,
 		restic: &engine.Restic{
 			Binary:          binary,
+			RetryLock:       backupLockWait,
 			Repo:            cfg.Repositories.Local,
 			PasswordCommand: engine.PasswordCommand(executable, resticPasswordCommand),
 			CacheDir:        layout.CacheDir(),

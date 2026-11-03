@@ -80,6 +80,8 @@ func (a *app) newRootCommand() *cobra.Command {
 	root.AddCommand(a.stubCommands()...)
 	root.AddCommand(
 		a.newBackupCommand(),
+		a.newScheduleCommand(),
+		a.newRunCommand(),
 		a.newListCommand(),
 		a.newDoctorCommand(),
 		a.newPasswordCommand(),
