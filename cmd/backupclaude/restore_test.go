@@ -298,6 +298,11 @@ func TestRestoreSessionApplyPutsItBack(t *testing.T) {
 }
 
 func TestRestoreRefusesTheDatabasesWhileClaudeRuns(t *testing.T) {
+	if !isWindowsManifest(t) {
+		// The fixture's application folder is where Windows keeps it: elsewhere
+		// it has no place, and its files are skipped rather than refused.
+		t.Skip("the fixture's desktop folder belongs to the Windows manifest")
+	}
 	w := newRestoreWorld(t, "")
 	w.running = []sysproc.Process{{PID: 1, Name: "claude.exe"}}
 	storage := filepath.Join(w.home, filepath.FromSlash(fakehome.StoreRoot), "Local Storage")
