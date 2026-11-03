@@ -291,3 +291,10 @@ label.field > span { font-size: 13px; color: var(--muted); }
   .modal .actions .btn { flex: 1 1 100%; }
   th:nth-child(5), td:nth-child(5) { display: none; }
 }
+
+.card:not(.hero) > * + * { margin-top: 12px; }
+.notice > * + * { margin-top: 6px; }
+.notice .row + .bar { margin-top: 10px; }
+.stack > .stack, .card > .stack { margin-top: 14px; }
+.list li > * + * { margin-top: 4px; }
+.kv + .stack { margin-top: 16px; }

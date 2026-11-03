@@ -914,7 +914,7 @@
   "ui.schedule.ok": "на месте",
   "ui.schedule.differs": "не совпадает с настройками",
   "ui.schedule.missing": "не установлена",
-  "ui.schedule.last": "Последний запуск: %s",
+  "ui.schedule.last": "Итог: %s",
   "ui.schedule.none": "Задач нет. Выполните: backupclaude schedule install",
   "ui.job.claude": "Данные Claude",
   "ui.job.projects": "Проекты",
@@ -1021,5 +1021,10 @@
   "ui.settings.tray_hint": "По умолчанию выключено. Значок это небольшая программа, которая остаётся работать и запускается при входе в систему.",
   "ui.settings.tray_unsupported": "Значок пока работает только в Windows.",
   "ui.settings.save": "Сохранить настройки",
-  "ui.settings.saved": "Настройки сохранены."
+  "ui.settings.saved": "Настройки сохранены.",
+  "ui.size.b": "%s Б",
+  "ui.size.kb": "%s КБ",
+  "ui.size.mb": "%s МБ",
+  "ui.size.gb": "%s ГБ",
+  "ui.size.tb": "%s ТБ"
 }

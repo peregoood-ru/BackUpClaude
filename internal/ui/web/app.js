@@ -85,13 +85,17 @@ async function api(path, options = {}) {
   }
 }
 
+function fmtNumber(value, digits) {
+  return new Intl.NumberFormat(state.meta.language || undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+}
+
 function fmtSize(bytes) {
   const n = Number(bytes) || 0;
-  if (n >= 1e12) return t('size.tb', n / 1e12);
-  if (n >= 1e9) return t('size.gb', n / 1e9);
-  if (n >= 1e6) return t('size.mb', n / 1e6);
-  if (n >= 1e3) return t('size.kb', n / 1e3);
-  return t('size.b', n);
+  if (n >= 1e12) return t('ui.size.tb', fmtNumber(n / 1e12, 2));
+  if (n >= 1e9) return t('ui.size.gb', fmtNumber(n / 1e9, 1));
+  if (n >= 1e6) return t('ui.size.mb', fmtNumber(n / 1e6, 0));
+  if (n >= 1e3) return t('ui.size.kb', fmtNumber(n / 1e3, 0));
+  return t('ui.size.b', fmtNumber(n, 0));
 }
 
 function fmtAge(seconds) {
@@ -265,18 +269,19 @@ function heroNode(env) {
   let kind = report.verdict;
   let title = t('ui.hero.' + kind);
   let sub = '';
+  let warning = '';
   if (kind === 'ok') {
     const parts = (local.profiles || []).filter((p) => p.last_snapshot)
       .map((p) => t('status.profile.last', t('status.profile.' + p.profile), fmtAge(p.age_seconds)));
     sub = parts.join('. ');
     if (!offsite.configured) {
       title = t('ui.hero.ok_local');
-      sub = (sub ? sub + '. ' : '') + t('ui.hero.ok_local_sub');
+      warning = t('ui.hero.ok_local_sub');
     }
   } else {
     sub = t('ui.hero.' + kind + '_sub');
   }
-  const todo = report.issues.map((code) => h('li', {},
+  const todo = (report.issues || []).map((code) => h('li', {},
     h('strong', {}, t('status.issue.' + code)), ' ', h('span', { class: 'muted' }, t('ui.todo.' + code))));
   const saveNow = h('button', {
     class: 'btn primary', type: 'button', 'data-busy-disable': true, disabled: running(), onclick: startBackup,
@@ -287,6 +292,7 @@ function heroNode(env) {
     h('div', { class: 'grow' },
       h('h1', {}, title),
       sub ? h('p', { class: 'sub' }, sub) : null,
+      warning ? h('div', { class: 'notice warn' }, warning) : null,
       todo.length ? h('ul', { class: 'list' }, todo) : null,
       h('div', { class: 'actions' }, saveNow, refresh),
       h('p', { class: 'muted' }, t('ui.status.time', fmtDate(report.time)))));
@@ -337,7 +343,7 @@ function copyCard(copy) {
       h('span', {}, t('status.profile.' + p.profile)),
       p.last_snapshot
         ? h('span', { class: 'badge ' + (p.stale ? 'warn' : 'ok') }, t('ui.ago', fmtAge(p.age_seconds)) + (p.stale ? ' · ' + t('ui.stale') : ''))
-        : h('span', { class: 'badge warn' }, t('ui.no_snapshots')))));
+        : h('span', { class: 'badge warn' }, t('ui.no_snapshots'))))));
     if (copy.size_bytes !== undefined) body.push(h('p', { class: 'muted' }, t('status.size', fmtSize(copy.size_bytes))));
   }
   return h('section', { class: 'card' }, h('h2', {}, title), body);
@@ -383,15 +389,15 @@ function checksCard(report) {
   if (report.sessions) {
     items.push([t('ui.sessions.title'), 'ok', t('status.sessions', report.sessions.files, fmtAge((Date.now() - Date.parse(report.sessions.time)) / 1000))]);
   }
-  if (!report.failing_jobs.length) items.push([t('ui.jobs.title'), 'ok', t('status.jobs.fine')]);
-  for (const f of report.failing_jobs) {
+  if (!(report.failing_jobs || []).length) items.push([t('ui.jobs.title'), 'ok', t('status.jobs.fine')]);
+  for (const f of report.failing_jobs || []) {
     items.push([t('ui.jobs.title'), 'bad', t('status.jobs.failing', f.job, fmtAge((Date.now() - Date.parse(f.time)) / 1000), f.message)]);
   }
-  for (const a of report.alerts) {
+  for (const a of report.alerts || []) {
     items.push([t('ui.alert.title'), 'bad', t('status.alert', fmtAge((Date.now() - Date.parse(a.time)) / 1000), a.text)]);
   }
-  if (!report.notify_channels.length) items.push([t('ui.notify.title'), 'warn', t('status.notify.off')]);
-  else items.push([t('ui.notify.title'), 'ok', t('status.notify.on', report.notify_channels.map((c) => t('status.channel.' + c)).join(', '))]);
+  if (!(report.notify_channels || []).length) items.push([t('ui.notify.title'), 'warn', t('status.notify.off')]);
+  else items.push([t('ui.notify.title'), 'ok', t('status.notify.on', (report.notify_channels || []).map((c) => t('status.channel.' + c)).join(', '))]);
   return h('section', { class: 'card' }, h('h2', {}, t('ui.checks.title')),
     h('ul', { class: 'list' }, items.map(([name, kind, text]) => h('li', {},
       h('div', { class: 'row' }, h('span', { class: 'badge ' + kind }, name)),
@@ -576,7 +582,7 @@ function drawRestoreList() {
       badge = h('span', { class: 'badge ' + (item.saved ? 'ok' : 'warn') }, t(item.saved ? 'ui.project.saved' : 'ui.project.not_saved'));
     }
     return h('li', {}, h('button', {
-      type: 'button', 'aria-pressed': String(!!selected),
+      type: 'button', 'aria-pressed': String(!!selected), 'aria-label': title + '. ' + meta,
       onclick: () => { r.selected = item; state.job = state.job && state.job.kind === 'restore' && state.job.state === 'running' ? state.job : null; drawRestoreList(); drawRestoreDetail(true); },
     }, h('div', { class: 'row between' }, h('span', { class: 'title' }, title), badge), h('div', { class: 'meta' }, meta)));
   }));

@@ -18,6 +18,8 @@ github.com/zalando/go-keyring    MIT License
 github.com/danieljoos/wincred    MIT License
 github.com/godbus/dbus           BSD 2-Clause License
 github.com/inconshreveable/mousetrap  Apache License 2.0
+fyne.io/systray                  Apache License 2.0 (https://github.com/fyne-io/systray)
+                                 The icon in the notification area (backupclaude tray, Windows).
 golang.org/x/sys, golang.org/x/term  BSD 3-Clause License
 
 Ideas and lists borrowed from other projects
@@ -51,3 +53,11 @@ Claude Vault   https://github.com/Krimchanin/claude-vault    MIT License
     The rule that putting restored files back only adds missing files and never
     replaces an existing one follows the README, checked on 2026-11-03.
     Copyright (c) 2026 Claude Vault contributors.
+
+Backrest   https://github.com/garethgeorge/backrest   GPL-3.0 License
+restic-browser   https://github.com/emuell/restic-browser   MIT License
+    The browser page (internal/ui) took from their READMEs, read on 2026-11-03, only
+    the general shape: a dashboard, a list of snapshots, restoring from a list to a
+    place the person chooses. No source file of either project was read or copied;
+    Backrest is under the GPL. The page is written from scratch in plain HTML, CSS
+    and JavaScript.

@@ -4,6 +4,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `backupclaude ui`: a page in the browser for people who do not want a command line. It starts a small server on `127.0.0.1` (random port), opens the default browser and ends when the tab is closed, so nothing stays running. Screens: **State** (is the data safe or is action needed, the age of each copy, size, disks, checks, scheduled tasks, a **Save now** button), **Snapshots**, **Restore** (a session or a project, into a separate folder or back in place after a preview and a confirmation) and **Settings** (language, retention, alarm threshold, extra and excluded folders, the status icon). English and Russian.
+- The page holds no logic: its buttons run `status`, `list`, `backup`, `restore` and `schedule status` in the same process and show their `--json` answers; the texts come from `locales/`. It is embedded with `go:embed` and needs neither the internet nor Node.
+- Safety of the page: 127.0.0.1 only, a one-time token in the link that becomes a session cookie, `Host`, `Origin` and a marker header checked, a fixed list of commands, names behind `--name=`, no password anywhere (the page learns only whether it is stored), and putting files back needs a preview, a receipt valid for exactly that request, and a confirmation.
+- `backupclaude tray` (Windows): a status icon in the notification area built on `fyne.io/systray`; the colour and sign (green tick, yellow exclamation mark, red cross, grey dot) follow the verdict of `status`, a click or the menu opens the page. Off by default; `tray --enable`, `tray --disable` or the tick on the Settings tab register it at login in the Run key of the user (no administrator rights).
+- `docs/ui.md` and `docs/ui.ru.md`.
+
 ## [0.1.0] - not yet released
 
 ### Added

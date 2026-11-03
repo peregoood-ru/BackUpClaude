@@ -914,7 +914,7 @@
   "ui.schedule.ok": "in place",
   "ui.schedule.differs": "differs from the settings",
   "ui.schedule.missing": "not installed",
-  "ui.schedule.last": "Last run: %s",
+  "ui.schedule.last": "Result: %s",
   "ui.schedule.none": "No tasks are set up. Run: backupclaude schedule install",
   "ui.job.claude": "Claude data",
   "ui.job.projects": "Projects",
@@ -1021,5 +1021,10 @@
   "ui.settings.tray_hint": "Off by default. The icon is a small program that stays running and starts when you log in.",
   "ui.settings.tray_unsupported": "The icon works only on Windows for now.",
   "ui.settings.save": "Save settings",
-  "ui.settings.saved": "Settings saved."
+  "ui.settings.saved": "Settings saved.",
+  "ui.size.b": "%s B",
+  "ui.size.kb": "%s KB",
+  "ui.size.mb": "%s MB",
+  "ui.size.gb": "%s GB",
+  "ui.size.tb": "%s TB"
 }
