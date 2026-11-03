@@ -58,6 +58,9 @@ var markers = []struct {
 	{".dropbox.cache", Dropbox},
 	{".tmp.driveupload", GoogleDrive},
 	{".tmp.drivedownload", GoogleDrive},
+	// The service keeps its state in a hidden .sync folder at the root; seen in a
+	// real installation on 2026-11-03.
+	{filepath.Join(".sync", "~special"), YandexDisk},
 	{".shortcut-targets-by-id", GoogleDrive},
 }
 

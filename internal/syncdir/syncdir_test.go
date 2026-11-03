@@ -95,6 +95,15 @@ func TestDetectByMarkerAndRegistryRoot(t *testing.T) {
 	}
 }
 
+func TestDetectYandexDiskInAFolderWithAnotherName(t *testing.T) {
+	root := volumeRoot(t)
+	box := filepath.Join(root, "Data", "Sync")
+	got, ok := Detect(filepath.Join(box, "deep", "repo"), probe(nil, filepath.Join(box, ".sync", "~special")))
+	if !ok || got.Service != YandexDisk || got.Root != box {
+		t.Fatalf("%+v %v", got, ok)
+	}
+}
+
 func TestSystemProbeRuns(t *testing.T) {
 	// Only checks that reading the real registry or nothing does not crash.
 	_ = SystemProbe()
