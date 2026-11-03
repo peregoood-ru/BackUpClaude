@@ -2,7 +2,7 @@
 
 `backupclaude ui` is for the person who does not want to open a command line. It starts a small page on your computer, opens it in the default browser, and ends when you close the tab. Nothing stays running in the background.
 
-![State](screenshots/state-light.png)
+![State](screenshots/state-light.jpg)
 
 ## What is on the page
 
@@ -13,7 +13,9 @@
 | **Restore** | Pick a session (a session missing on this computer is marked *only in the copy*) or a project. **Take out into a separate folder** is the safe way: the files are laid out in a new folder and nothing on the computer changes. **Put back in place** first shows what would happen, and only a confirmation in a separate window does it. Only missing files come back; a file that exists is never overwritten |
 | **Settings** | Where the copies are, the schedule, whether the password is stored (the page never shows it), notification channels. Changeable: language, how many snapshots to keep, the threshold of the alarm about deleted sessions, extra folders to save, folders not to save, the status icon |
 
-![Restore](screenshots/restore-light.png)
+![Restore](screenshots/restore-light.jpg)
+
+More screens: [snapshots](screenshots/snapshots-light.jpg), [confirmation before putting back](screenshots/restore-confirm-light.jpg), [settings](screenshots/settings-light.jpg), [a problem on the State tab](screenshots/state-problem-light.jpg), and the phone-width dark theme ([State](screenshots/state-dark-mobile.jpg), [Restore](screenshots/restore-dark-mobile.jpg)). They were taken on made-up data.
 
 ## How it works
 
@@ -43,7 +45,7 @@ If the browser cannot be opened the command prints the link; open it yourself, o
 
 ## The icon in the notification area
 
-![The icon](screenshots/tray.png)
+![The four states of the icon: ok, attention, problem, unknown, on a light and a dark background](screenshots/tray.png)
 
 `backupclaude tray` (Windows) shows a small icon whose colour and sign tell the state: a green tick, a yellow exclamation mark, a red cross, a grey dot while the state is being read or cannot be read. A click opens the page; the menu has **Open the page**, **Check again** and **Quit**. The state is read every ten minutes by the same code as `status`.
 

@@ -321,7 +321,7 @@ function backupResult(job) {
         h('strong', {}, t('status.profile.' + p.profile)),
         h('span', { class: 'badge ' + (good ? 'ok' : 'bad') }, t('backup.status.' + p.status))),
       good ? h('p', {}, t('ui.backup.totals', p.files, fmtSize(p.bytes), p.files_new + p.files_changed, fmtSize(p.data_added), Math.round(p.seconds))) : null,
-      p.snapshot_id ? h('p', { class: 'muted' }, t('ui.backup.snapshot'), ' ', h('span', { class: 'mono' }, p.snapshot_id)) : null,
+      p.snapshot_id ? h('p', { class: 'muted' }, t('ui.backup.snapshot'), ' ', h('span', { class: 'mono' }, p.snapshot_id.slice(0, 8))) : null,
       p.error ? errorBox(p.error) : null));
   }
   if (!nodes.length) nodes.push(env.ok ? h('div', { class: 'notice ok' }, t('ui.backup.done')) : errorBox(env.error));

@@ -420,7 +420,7 @@ func TestThePageCanRunOnlyKnownCommands(t *testing.T) {
 	h.send("POST", "/api/backup", map[string]string{"profile": "all"})
 	finished(t, h)
 	for _, body := range []map[string]any{
-		{"mode": "session", "name": "d1ca8735", "step": "copy"},
+		{"mode": "session", "name": "0a1b2c3d", "step": "copy"},
 		{"mode": "project", "name": "demo", "step": "preview"},
 		{"mode": "session", "name": "--show", "step": "copy"},
 		{"mode": "session", "name": "a b", "step": "copy"},
@@ -450,7 +450,7 @@ func TestRestoreNeedsAPreviewAndAConfirmation(t *testing.T) {
 	backend := &fakeBackend{}
 	h := start(t, backend, Options{})
 	h.enter()
-	request := map[string]any{"mode": "session", "name": "d1ca8735", "from": "local", "step": "apply"}
+	request := map[string]any{"mode": "session", "name": "0a1b2c3d", "from": "local", "step": "apply"}
 
 	// No confirmation: refused, and nothing ran.
 	if code, _ := h.send("POST", "/api/restore", request); code != http.StatusForbidden {
@@ -470,7 +470,7 @@ func TestRestoreNeedsAPreviewAndAConfirmation(t *testing.T) {
 	}
 
 	// A preview gives a receipt for exactly that request.
-	preview := map[string]any{"mode": "session", "name": "d1ca8735", "from": "local", "step": "preview"}
+	preview := map[string]any{"mode": "session", "name": "0a1b2c3d", "from": "local", "step": "preview"}
 	if code, _ := h.send("POST", "/api/restore", preview); code != http.StatusOK {
 		t.Fatalf("preview: %d", code)
 	}
@@ -478,7 +478,7 @@ func TestRestoreNeedsAPreviewAndAConfirmation(t *testing.T) {
 	if job.State != stateDone || job.Plan == "" || job.Step != stepPreview {
 		t.Fatalf("preview job: %+v", job)
 	}
-	if got := strings.Join(backend.commands()[0], " "); got != "restore --session=d1ca8735 --from=local --apply --dry-run --lang en" {
+	if got := strings.Join(backend.commands()[0], " "); got != "restore --session=0a1b2c3d --from=local --apply --dry-run --lang en" {
 		t.Errorf("preview ran %q", got)
 	}
 
@@ -495,7 +495,7 @@ func TestRestoreNeedsAPreviewAndAConfirmation(t *testing.T) {
 	if applied := finished(t, h); applied.State != stateDone || applied.Plan != "" {
 		t.Errorf("apply job: %+v", applied)
 	}
-	if got := strings.Join(backend.commands()[1], " "); got != "restore --session=d1ca8735 --from=local --apply --lang en" {
+	if got := strings.Join(backend.commands()[1], " "); got != "restore --session=0a1b2c3d --from=local --apply --lang en" {
 		t.Errorf("apply ran %q", got)
 	}
 	if code, _ := h.send("POST", "/api/restore", request); code != http.StatusForbidden {
