@@ -314,7 +314,7 @@ func (a *app) readDisks(current *session) []diskStatus {
 		if err != nil {
 			continue
 		}
-		name := filepath.VolumeName(probe)
+		name := strings.TrimSuffix(filepath.VolumeName(probe), ":")
 		if name == "" {
 			name = probe
 		}
