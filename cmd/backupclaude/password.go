@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -66,7 +65,7 @@ func (a *app) showPassword() error {
 	}
 	fmt.Fprintln(a.stdout, a.tr.T("password.show.warning"))
 	fmt.Fprint(a.stdout, a.tr.T("password.show.prompt"), " ")
-	answer, err := bufio.NewReader(a.stdin).ReadString('\n')
+	answer, err := a.input().ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return i18n.E("password.show.cancelled")
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -64,7 +63,7 @@ func (a *app) secretLine(fromStdin bool, prompt string) (string, bool, error) {
 	if a.deps.terminal() {
 		fmt.Fprint(a.stderr, prompt, " ")
 	}
-	line, err := bufio.NewReader(a.stdin).ReadString('\n')
+	line, err := a.input().ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return "", false, i18n.E("notify.read_failed").Because(err)
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,6 +35,9 @@ type app struct {
 	jsonOut        bool
 	flagLang       string
 	command        string
+	// reader is the only buffered reader of stdin: two readers would each keep
+	// lines the other one needs.
+	reader *bufio.Reader
 }
 
 func newApp(args []string, stdin io.Reader, stdout, stderr io.Writer, deps dependencies) *app {
@@ -183,4 +187,12 @@ func (a *app) listCommands(cmd *cobra.Command) error {
 		}
 	}
 	return a.writeJSON(envelope{OK: true, Command: a.command, Data: map[string]any{"commands": commands}})
+}
+
+// input returns the buffered reader of stdin, shared by every question.
+func (a *app) input() *bufio.Reader {
+	if a.reader == nil {
+		a.reader = bufio.NewReader(a.stdin)
+	}
+	return a.reader
 }
