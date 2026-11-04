@@ -39,7 +39,8 @@
       "ant-did", "ant-device-registry.json", "window-state.json", "dispatch-footprint-census.json",
       "buddy-tokens.json"
     ],
-    "locked_ok": ["Local Storage", "IndexedDB"]
+    "locked_ok": ["Local Storage", "IndexedDB"],
+    "processes": {"names": ["claude.exe"], "path_markers": ["/WindowsApps/Claude_", "/AnthropicClaude/"]}
   },
   "never": [".credentials.json", "vm_bundles", "node_modules", ".venv", "venv", "__pycache__"],
   "projects": {

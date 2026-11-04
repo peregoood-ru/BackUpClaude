@@ -60,6 +60,8 @@ type world struct {
 	lowered, contained int
 	// notify points the notification channels at a local server.
 	notify notify.Options
+	// running is what the process list shows.
+	running []sysproc.Process
 }
 
 func newWorld(t *testing.T) *world {
@@ -83,6 +85,7 @@ func (w *world) deps() dependencies {
 		lower:      func() error { w.lowered++; return nil },
 		contain:    func() (*sysproc.Group, error) { w.contained++; return &sysproc.Group{}, nil },
 		notify:     w.notify,
+		running:    func([]string, []string) ([]sysproc.Process, error) { return w.running, nil },
 	}
 }
 
@@ -172,7 +175,7 @@ func TestPublicCommandsAreListed(t *testing.T) {
 }
 
 func TestStubsExplainThemselves(t *testing.T) {
-	for _, name := range []string{"setup", "restore", "ui", "update", "uninstall"} {
+	for _, name := range []string{"setup", "ui", "update", "uninstall"} {
 		w := newWorld(t)
 		text := w.run(name)
 		if text.code != 3 || !strings.Contains(text.stderr, name) || !strings.Contains(text.stderr, "What to do:") {

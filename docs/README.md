@@ -1,3 +1,5 @@
 # Documentation
 
-Instructions in English and Russian arrive with the features they describe: `storage` at stage 4, `restore` at stage 6, `team` at stage 9.
+- [Restore](restore.md) / [Восстановление](restore.ru.md): a lost session, a damaged project, a new computer.
+
+Instructions for `storage` arrive at stage 4 and `team` at stage 9.

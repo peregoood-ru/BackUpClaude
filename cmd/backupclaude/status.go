@@ -46,6 +46,8 @@ const (
 	issueDiskLow         = "disk_low"
 	issueAlert           = "alert"
 	issueOffsiteBroken   = "offsite_unreachable"
+	issueRestoreFailed   = "restore_test_failed"
+	issueRestoreOverdue  = "restore_test_overdue"
 )
 
 const (
@@ -108,6 +110,17 @@ type checkStatus struct {
 	Overdue bool       `json:"overdue,omitempty"`
 }
 
+// restoreTestStatus is the result of the last trial restore.
+type restoreTestStatus struct {
+	// State is "never", "ok" or "failed".
+	State   string     `json:"state"`
+	Time    *time.Time `json:"time,omitempty"`
+	Files   int        `json:"files,omitempty"`
+	Matched int        `json:"matched,omitempty"`
+	Overdue bool       `json:"overdue,omitempty"`
+	Message string     `json:"message,omitempty"`
+}
+
 // jobFailure is a job whose latest run failed.
 type jobFailure struct {
 	Job     string    `json:"job"`
@@ -116,18 +129,19 @@ type jobFailure struct {
 }
 
 type statusReport struct {
-	Verdict     string        `json:"verdict"`
-	Time        time.Time     `json:"time"`
-	Copies      []copyStatus  `json:"copies"`
-	Disks       []diskStatus  `json:"disks"`
-	Check       checkStatus   `json:"check"`
-	FailingJobs []jobFailure  `json:"failing_jobs"`
-	FailedRuns  int           `json:"failed_runs"`
-	WindowHours int           `json:"window_hours"`
-	Alerts      []watch.Alert `json:"alerts"`
-	Sessions    *watch.Count  `json:"sessions,omitempty"`
-	Channels    []string      `json:"notify_channels"`
-	Issues      []string      `json:"issues"`
+	Verdict     string            `json:"verdict"`
+	Time        time.Time         `json:"time"`
+	Copies      []copyStatus      `json:"copies"`
+	Disks       []diskStatus      `json:"disks"`
+	Check       checkStatus       `json:"check"`
+	RestoreTest restoreTestStatus `json:"restore_test"`
+	FailingJobs []jobFailure      `json:"failing_jobs"`
+	FailedRuns  int               `json:"failed_runs"`
+	WindowHours int               `json:"window_hours"`
+	Alerts      []watch.Alert     `json:"alerts"`
+	Sessions    *watch.Count      `json:"sessions,omitempty"`
+	Channels    []string          `json:"notify_channels"`
+	Issues      []string          `json:"issues"`
 }
 
 func (a *app) newStatusCommand() *cobra.Command {
@@ -180,6 +194,7 @@ func (a *app) buildStatus(ctx context.Context, current *session, window time.Dur
 
 	logs := readRunLogs(current.layout, now.AddDate(0, 0, -logLookbackDays))
 	report.Check = checkOf(logs, cfg, now)
+	report.RestoreTest = restoreTestOf(logs, cfg, now)
 	report.FailingJobs, report.FailedRuns = failuresOf(logs, now.Add(-window))
 
 	if state, _ := watch.Load(current.layout.WatchFile()); state != nil {
@@ -436,6 +451,35 @@ func checkOf(runs []loggedRun, cfg *config.Config, now time.Time) checkStatus {
 	return status
 }
 
+// restoreTestOf reads the last trial restore from the log.
+func restoreTestOf(runs []loggedRun, cfg *config.Config, now time.Time) restoreTestStatus {
+	status := restoreTestStatus{State: "never"}
+	for i := len(runs) - 1; i >= 0; i-- {
+		run := runs[i]
+		if run.Job != schedule.JobRestoreTest {
+			continue
+		}
+		moment := run.at
+		status.Time = &moment
+		var result struct {
+			Files   int `json:"files"`
+			Matched int `json:"matched"`
+		}
+		_ = json.Unmarshal(run.Result, &result)
+		status.Files, status.Matched = result.Files, result.Matched
+		status.State = "ok"
+		if !run.OK {
+			status.State = "failed"
+			if run.Error != nil {
+				status.Message = run.Error.Message
+			}
+		}
+		status.Overdue = now.Sub(run.at) > time.Duration(cfg.Schedule.RestoreTestEveryHours*2)*time.Hour
+		break
+	}
+	return status
+}
+
 // failuresOf lists the jobs whose latest run failed, and counts the failed runs
 // since the given moment.
 func failuresOf(runs []loggedRun, since time.Time) ([]jobFailure, int) {
@@ -502,6 +546,12 @@ func issuesOf(report *statusReport) []string {
 	if report.Check.Overdue {
 		add(issueCheckOverdue)
 	}
+	switch {
+	case report.RestoreTest.State == "failed":
+		add(issueRestoreFailed)
+	case report.RestoreTest.Overdue:
+		add(issueRestoreOverdue)
+	}
 	if len(report.FailingJobs) > 0 {
 		add(issueJobFailing)
 	}
@@ -524,7 +574,7 @@ func verdictOf(report *statusReport) string {
 	verdict := verdictOK
 	for _, issue := range report.Issues {
 		switch issue {
-		case issueRepoUnreachable, issueCheckErrors, issueOffsiteBroken:
+		case issueRepoUnreachable, issueCheckErrors, issueOffsiteBroken, issueRestoreFailed:
 			return verdictProblem
 		default:
 			verdict = verdictAttention
@@ -566,6 +616,7 @@ func (a *app) renderStatus(report *statusReport) string {
 	line("")
 
 	line("%s", a.checkLine(report.Check))
+	line("%s", a.restoreTestLine(report.RestoreTest))
 	if report.Sessions != nil {
 		line("%s", a.tr.T("status.sessions", report.Sessions.Files, a.age(report.Time.Sub(report.Sessions.Time))))
 	}
@@ -642,6 +693,21 @@ func (a *app) checkLine(check checkStatus) string {
 	}
 	if check.Overdue {
 		text += " " + a.tr.T("status.check.overdue")
+	}
+	return text
+}
+
+func (a *app) restoreTestLine(test restoreTestStatus) string {
+	if test.Time == nil {
+		return a.tr.T("status.restore_test.never")
+	}
+	when := test.Time.Local().Format("02.01.2006 15:04")
+	text := a.tr.T("status.restore_test.ok", when, test.Files, test.Matched)
+	if test.State == "failed" {
+		text = a.tr.T("status.restore_test.failed", when, test.Message)
+	}
+	if test.Overdue {
+		text += " " + a.tr.T("status.restore_test.overdue")
 	}
 	return text
 }

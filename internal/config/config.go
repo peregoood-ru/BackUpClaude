@@ -57,6 +57,10 @@ type Schedule struct {
 	CheckEveryHours    int `json:"check_every_hours"`
 	// SummaryEveryHours is how often the summary of the state is sent.
 	SummaryEveryHours int `json:"summary_every_hours"`
+	// RestoreTestEveryHours is how often a trial restore proves that the copies
+	// can be read back: a share of the data is checked and sample files are
+	// restored and compared with the originals. 672 hours are four weeks.
+	RestoreTestEveryHours int `json:"restore_test_every_hours"`
 }
 
 // Retention is how many snapshots of each kind to keep.
@@ -101,6 +105,7 @@ func Default() Config {
 		Version: CurrentVersion,
 		Schedule: Schedule{
 			ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168, SummaryEveryHours: 168,
+			RestoreTestEveryHours: 672,
 		},
 		Retention: Retention{Hourly: 48, Daily: 30, Weekly: 12, Monthly: 24},
 		Notify:    Notify{DeletionDropPercent: 20},
@@ -236,6 +241,7 @@ func (c *Config) validate(name string) error {
 		{"schedule.cleanup_every_hours", c.Schedule.CleanupEveryHours},
 		{"schedule.check_every_hours", c.Schedule.CheckEveryHours},
 		{"schedule.summary_every_hours", c.Schedule.SummaryEveryHours},
+		{"schedule.restore_test_every_hours", c.Schedule.RestoreTestEveryHours},
 	} {
 		if item.value < 1 || item.value > maxMaintenanceHours {
 			add("config.range", item.field, item.value, 1, maxMaintenanceHours)

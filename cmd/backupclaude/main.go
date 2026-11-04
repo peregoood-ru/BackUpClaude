@@ -35,8 +35,12 @@ func main() {
 		},
 		stdoutTerminal: func() bool { return term.IsTerminal(int(os.Stdout.Fd())) },
 		env:            discover.CurrentEnv,
-		lower:          sysproc.Lower,
-		contain:        sysproc.Contain,
+		readSecret: func() (string, error) {
+			line, err := term.ReadPassword(int(os.Stdin.Fd()))
+			return string(line), err
+		},
+		lower:   sysproc.Lower,
+		contain: sysproc.Contain,
 	}
 	code := run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, deps)
 	stop()
@@ -66,6 +70,10 @@ type dependencies struct {
 	// notify tunes the network side of the notification channels; tests point
 	// them at a local server.
 	notify notify.Options
+	// readSecret reads a line from the terminal without showing it.
+	readSecret func() (string, error)
+	// running lists processes by name; nil means asking the OS.
+	running func(names, markers []string) ([]sysproc.Process, error)
 }
 
 func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer, deps dependencies) int {

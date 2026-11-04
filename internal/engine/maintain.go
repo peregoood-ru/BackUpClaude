@@ -108,8 +108,18 @@ type CheckResult struct {
 // Check verifies the structure of the repository: indexes, packs and trees. It
 // does not read the data blobs.
 func (r *Restic) Check(ctx context.Context) (*CheckResult, error) {
+	return r.CheckData(ctx, "")
+}
+
+// CheckData is Check that also reads a share of the data, such as "10%", and
+// compares it with its hashes. An empty subset reads no data.
+func (r *Restic) CheckData(ctx context.Context, subset string) (*CheckResult, error) {
+	var args []string
+	if subset != "" {
+		args = append(args, "--read-data-subset", subset)
+	}
 	var result *CheckResult
-	err := r.run(ctx, r.repoArgs("check"), func(line []byte) {
+	err := r.run(ctx, r.repoArgs("check", args...), func(line []byte) {
 		var summary struct {
 			MessageType        string `json:"message_type"`
 			NumErrors          int    `json:"num_errors"`

@@ -38,6 +38,10 @@ const fakeSummary = `{"message_type":"summary","files_new":2,"files_changed":1,"
 // fakeRestic records each call and answers by command.
 func fakeRestic(dir, mode string) {
 	command := os.Args[1]
+	if mode == "typed" && !typedPasswordMatches() {
+		fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":12,"message":"Fatal: wrong password or no key found"}`)
+		os.Exit(12)
+	}
 	record, _ := json.Marshal(os.Args[1:])
 	file, _ := os.OpenFile(filepath.Join(dir, "calls.txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	fmt.Fprintf(file, "%s\n", record)
@@ -75,6 +79,10 @@ func fakeRestic(dir, mode string) {
 	case "ls":
 		data, _ := os.ReadFile(filepath.Join(dir, "nodes.jsonl"))
 		fmt.Print(fakeLs(string(data), os.Args[2:]))
+	case "find":
+		fakeFind(dir, os.Args[2:])
+	case "restore":
+		fakeRestore(dir, os.Args[2:])
 	}
 }
 
@@ -88,7 +96,7 @@ func fakeLs(nodes string, args []string) string {
 		case "--json":
 		case "--recursive":
 			recursive = true
-		case "--repo", "--password-command", "--cache-dir":
+		case "--repo", "--password-command", "--cache-dir", "--retry-lock", "-o":
 			i++
 		default:
 			positional = append(positional, args[i])
