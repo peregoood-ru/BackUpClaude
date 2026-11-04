@@ -14,8 +14,8 @@ BackUpClaude is a Go application with a command line and a local browser page. I
 ## Secrets
 
 - The repository password lives only in the OS key store and reaches restic through `--password-command`.
-- Never print it, log it, pass it as an argument or put it in an environment variable. `password --show` is the single exception: it works only for a person at a terminal, and an agent must never run it. The hidden `restic-password` command is for restic alone; never run it by hand.
-- An existing password is never replaced. That would lock the user out of the repository.
+- Never print it, log it, pass it as an argument or put it in an environment variable. `password --show` and the end of `password change` are the exceptions: they work only for a person at a terminal, and an agent must never run them on real data. The hidden `restic-password` command is for restic alone; never run it by hand.
+- An existing password is never replaced by setup, `repo init` or the like: that would lock the user out of the repository. The one way to change it is `password change`, which adds the new key to every copy first, replaces the key store entry second and removes the old key last. Like `password --show`, an agent must never run it on real data: the new password appears on screen.
 
 ## Conventions
 

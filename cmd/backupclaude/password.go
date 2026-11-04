@@ -30,6 +30,7 @@ func (a *app) newPasswordCommand() *cobra.Command {
 			return a.passwordStatus()
 		},
 	}
+	cmd.AddCommand(a.newPasswordChangeCommand())
 	cmd.Flags().BoolVar(&show, "show", false, a.tr.T("flag.password.show"))
 	return cmd
 }

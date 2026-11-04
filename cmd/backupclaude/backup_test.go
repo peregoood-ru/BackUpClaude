@@ -46,6 +46,10 @@ const fakeSummary = `{"message_type":"summary","files_new":2,"files_changed":1,"
 // fakeRestic records each call and answers by command.
 func fakeRestic(dir, mode string) {
 	command := os.Args[1]
+	if mode == "keys" {
+		fakeKeys(dir)
+		return
+	}
 	if mode == "typed" && !typedPasswordMatches() {
 		fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":12,"message":"Fatal: wrong password or no key found"}`)
 		os.Exit(12)

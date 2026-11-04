@@ -50,7 +50,9 @@ type envelopeJSON struct {
 }
 
 type world struct {
-	store    *secrets.Memory
+	store *secrets.Memory
+	// override replaces the store when set, to watch what is written to it.
+	override secrets.Store
 	terminal bool
 	stdin    string
 	// home is the fake home folder. The real one is never read.
@@ -100,7 +102,12 @@ func newWorld(t *testing.T) *world {
 
 func (w *world) deps() dependencies {
 	return dependencies{
-		secrets: func() secrets.Store { return w.store },
+		secrets: func() secrets.Store {
+			if w.override != nil {
+				return w.override
+			}
+			return w.store
+		},
 		executable: func() (string, error) {
 			if w.exe != "" {
 				return w.exe, nil
