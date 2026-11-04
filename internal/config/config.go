@@ -337,3 +337,6 @@ func Save(path string, cfg *Config) error {
 	}
 	return nil
 }
+
+// ValidOffsite reports whether location can be repositories.offsite.
+func ValidOffsite(location string) bool { return validOffsite(location) }

@@ -39,6 +39,9 @@ claude-moove   https://github.com/paulgegenyi/claude-moove   MIT License
     folders are renamed. The restore refuses to put back Local Storage while
     Claude runs, as that project closes Claude for it. Copyright (c) 2026 Claude
     Moove contributors.
+    The way of installing with one command that downloads a release and starts it
+    (scripts/install.ps1, the install command of the README) follows the README of
+    that project, checked on 2026-11-03. No code was copied.
 
 Claude Vault   https://github.com/Krimchanin/claude-vault    MIT License
     The search for Desktop data under %LOCALAPPDATA%\Packages\*\LocalCache\Roaming,

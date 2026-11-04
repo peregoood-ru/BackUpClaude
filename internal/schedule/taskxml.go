@@ -10,14 +10,17 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+
+	"github.com/peregoood-ru/BackUpClaude/internal/sandbox"
 )
 
 // folder holds all tasks of the application in the Task Scheduler, so that they
 // are easy to find, list and remove.
 const folder = "BackUpClaude"
 
-// taskPath is the full name of a task in the Task Scheduler.
-func taskPath(name string) string { return `\` + folder + `\` + name }
+// taskPath is the full name of a task in the Task Scheduler. A sandbox has a
+// folder of its own.
+func taskPath(name string) string { return `\` + folder + sandbox.Suffix() + `\` + name }
 
 const (
 	layoutBoundary = "2006-01-02T15:04:05"

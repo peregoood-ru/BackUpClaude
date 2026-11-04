@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/config"
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
@@ -22,10 +23,17 @@ import (
 const (
 	envFakeRestic = "BACKUPCLAUDE_FAKE_RESTIC_DIR"
 	envFakeMode   = "BACKUPCLAUDE_FAKE_RESTIC_MODE"
+	// envHold makes the test binary wait instead of running tests: a program
+	// whose file is in use.
+	envHold = "BACKUPCLAUDE_TEST_HOLD"
 )
 
 // TestMain lets the test binary play restic.
 func TestMain(m *testing.M) {
+	if os.Getenv(envHold) != "" {
+		time.Sleep(time.Minute)
+		return
+	}
 	if dir := os.Getenv(envFakeRestic); dir != "" {
 		fakeRestic(dir, os.Getenv(envFakeMode))
 		return
@@ -47,6 +55,17 @@ func fakeRestic(dir, mode string) {
 	fmt.Fprintf(file, "%s\n", record)
 	_ = file.Close()
 	switch command {
+	case "cat":
+		// A repository that does not exist until init has run.
+		if mode == "norepo" {
+			if _, err := os.Stat(filepath.Join(dir, "initialized")); err != nil {
+				fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":10,"message":"repository does not exist"}`)
+				os.Exit(10)
+			}
+		}
+	case "init":
+		_ = os.WriteFile(filepath.Join(dir, "initialized"), []byte("yes"), 0o600)
+		fmt.Println(`{"message_type":"initialized","id":"abcdef","repository":"x"}`)
 	case "unlock":
 		if mode == "unlock-fails" {
 			fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":10,"message":"repository does not exist"}`)

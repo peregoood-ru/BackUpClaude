@@ -11,10 +11,14 @@ import (
 	"golang.org/x/term"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
+	"github.com/peregoood-ru/BackUpClaude/internal/disk"
 	"github.com/peregoood-ru/BackUpClaude/internal/notify"
 	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
+	"github.com/peregoood-ru/BackUpClaude/internal/selfinstall"
+	"github.com/peregoood-ru/BackUpClaude/internal/syncdir"
 	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
+	"github.com/peregoood-ru/BackUpClaude/internal/update"
 )
 
 // Set by the release build.
@@ -27,6 +31,10 @@ var (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
+	// A file left by the last update may be removed now that its program ended.
+	if self, err := os.Executable(); err == nil {
+		selfinstall.CleanOld(self)
+	}
 	deps := dependencies{
 		secrets:    func() secrets.Store { return secrets.NewKeyring() },
 		executable: os.Executable,
@@ -74,6 +82,25 @@ type dependencies struct {
 	readSecret func() (string, error)
 	// running lists processes by name; nil means asking the OS.
 	running func(names, markers []string) ([]sysproc.Process, error)
+	// path changes the PATH of the user; nil means the real one.
+	path pathManager
+	// drives lists the local disks; nil asks the OS.
+	drives func() []disk.Drive
+	// syncProbe says where the sync services keep their folders; nil asks the
+	// computer.
+	syncProbe func() syncdir.Probe
+	// releases makes the client of the release API; nil means GitHub.
+	releases func(token string) *update.Client
+	// runProgram starts a program and returns what it printed; nil means the OS.
+	runProgram func(ctx context.Context, program string, args ...string) ([]byte, error)
+}
+
+// pathManager is the PATH of the user.
+type pathManager interface {
+	Add(dir string) (bool, error)
+	Remove(dir string) (bool, error)
+	Contains(dir string) (bool, error)
+	Supported() bool
 }
 
 func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer, deps dependencies) int {

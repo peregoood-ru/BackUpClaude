@@ -4,6 +4,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.1.0] - not yet released
+
 ### Added
 
 - Application skeleton on Cobra with all planned commands; `--version` and `doctor` work, the rest explain which stage delivers them.
@@ -34,6 +36,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A computer without settings restores with `--repo <location>` and the password typed from paper (`--password-stdin` for scripts). The password reaches restic on its input only; restic is downloaded and checked against its hash if it is not installed yet.
 - The `restore-test` job (a sixth scheduled task, every four weeks on Sunday at 08:00, `schedule.restore_test_every_hours`, 672 by default) reads a tenth of the data with `restic check --read-data-subset 10%`, restores up to 60 sample files of the newest snapshots into an empty folder next to the repository and compares the SHA-256 of each with the file on disk. A failure is reported at once like any failed job; the result shows in `status` and in the weekly summary.
 - `docs/restore.md` and `docs/restore.ru.md`: what to do when a session is gone, a project is damaged, or the computer is lost.
+- The setup wizard, `backupclaude setup`: eight steps (check the computer, put the program in place, install restic and rclone, questions, settings and repository, tasks, the `/backup` skill, first snapshot and password). Every question has a default that Enter accepts; the questions are the local copy, the external copy and the channel for failure messages, and answers exist as flags (`--local`, `--offsite`, `--telegram-chat-id` with `--telegram-token-stdin`, `--webhook-url-stdin`, `--skill`, `--install`, `--projects-now` and others). `--yes` asks nothing, `--json` gives one object with the steps and no secrets. It finishes by explaining how to write the password on paper and by taking the first snapshot of Claude's data.
+- The local copy is refused inside the folders of Yandex Disk, OneDrive, Google Drive and Dropbox, found by name, by the environment (`OneDrive*`), by the cloud files registry of Windows and by marker files; a folder that holds other files is refused too. A disk that is not the system one is suggested.
+- The wizard can be run again: it reads the settings and changes only what is answered. A settings file that would not change is not rewritten, an existing password or repository is never replaced, tasks that match the settings are left alone, a program the tasks already run is not moved without `--install`, and a repository that already has snapshots gets none unless `--snapshot` is given. A broken settings file stops the wizard instead of being overwritten.
+- `backupclaude uninstall` removes the tasks, restic, rclone, the cache, the `/backup` skill it wrote, the program and its PATH entry. It never touches the copies or the password in the key store, warns about the password, and asks first. `--purge` also deletes settings, state, logs and the notification secrets; `rclone.conf` stays.
+- `backupclaude update` looks for the newest published release, downloads the archive and `checksums.txt`, stops unless the SHA-256 matches, starts the new program to see that it runs and swaps it in; a running `.exe` is renamed, not overwritten, and the old file goes at the next start. Settings, schedule and copies are not touched. A private repository gives an error that says what to do (a token in `BACKUPCLAUDE_GITHUB_TOKEN`); `--from-file` installs a file from the disk, `--check` only looks.
+- `backupclaude install` copies the program into `%USERPROFILE%\.backupclaude\bin` and adds the folder to the PATH of the user (the registry, no administrator rights), and `scripts/install.ps1`, published with every release, downloads and verifies a release and runs it: `irm .../releases/latest/download/install.ps1 | iex`.
+- The `/backup` skill for Claude Code (`skill install|remove|status`, offered by the wizard): it calls `status`, `list` and `restore` with `--json`, restores into a separate folder first, puts files back only after the person agrees and never runs `password --show`.
+- `BACKUPCLAUDE_SANDBOX=name` gives the scheduler folder, the key store group and the PATH key a name of their own, so that a test on a computer with working copies cannot touch them.
+- `scripts/e2e-windows.ps1` and a CI job on a clean Windows: install from a local archive, setup, made-up data, backup, deleted files, restore, comparison of SHA-256, update, uninstall.
+- `docs/install.md` and `docs/install.ru.md`, the README files rewritten for a first-time user: quick start, what is saved, security, limits, the SmartScreen warning for an unsigned file.
+
 ### Changed
 
 - On Windows the data folder is `%USERPROFILE%\.backupclaude` instead of `%LOCALAPPDATA%\BackUpClaude`. A Store installation of Claude Desktop redirects `%LOCALAPPDATA%` into its package for everything it starts, so a scheduled task, which runs outside the package, could not see the settings. To move an older folder, copy its content.
@@ -42,3 +55,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - With the home folder inside a tree that is never a project, such as `/tmp` in a container, every project was dropped silently. Folders inside home now stay projects.
 - `list` showed every session as not saved: `restic ls` with a path stops at direct children unless given `--recursive`. Application sessions without a transcript are now compared with the snapshot too, and a damaged description on disk no longer looks like a deleted session.
+
+### Known limits of 0.1.0
+
+- The copy to external storage is not done: the wizard saves a location, but nothing copies to it yet and `status` shows it as unreachable.
+- Windows 10 and 11 only; the program is not signed.
+- `update` needs a token while the repository is private.

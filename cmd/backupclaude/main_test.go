@@ -13,12 +13,15 @@ import (
 
 	"github.com/peregoood-ru/BackUpClaude/internal/config"
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
+	"github.com/peregoood-ru/BackUpClaude/internal/disk"
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
 	"github.com/peregoood-ru/BackUpClaude/internal/fakehome"
 	"github.com/peregoood-ru/BackUpClaude/internal/notify"
 	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
+	"github.com/peregoood-ru/BackUpClaude/internal/syncdir"
 	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
+	"github.com/peregoood-ru/BackUpClaude/internal/update"
 )
 
 type result struct {
@@ -62,19 +65,41 @@ type world struct {
 	notify notify.Options
 	// running is what the process list shows.
 	running []sysproc.Process
+	// exe is the program file; empty means a name that is not a file.
+	exe string
+	// path, drives, syncProbe, releases and runProgram replace the OS side of
+	// the installer.
+	path       pathManager
+	drives     func() []disk.Drive
+	syncProbe  func() syncdir.Probe
+	releases   func(token string) *update.Client
+	runProgram func(ctx context.Context, program string, args ...string) ([]byte, error)
 }
 
 func newWorld(t *testing.T) *world {
 	t.Helper()
 	t.Setenv(config.EnvHome, filepath.Join(t.TempDir(), "data"))
 	t.Setenv("BACKUPCLAUDE_LANG", "en")
-	return &world{store: secrets.NewMemory(), home: t.TempDir()}
+	// The OS side of the installer is replaced by default: a test must never
+	// touch the real PATH, the real scheduler or look at the real disks.
+	return &world{
+		store: secrets.NewMemory(), home: t.TempDir(),
+		sched:     &fakeScheduler{},
+		path:      &fakePath{},
+		drives:    func() []disk.Drive { return nil },
+		syncProbe: func() syncdir.Probe { return syncdir.Probe{} },
+	}
 }
 
 func (w *world) deps() dependencies {
 	return dependencies{
-		secrets:        func() secrets.Store { return w.store },
-		executable:     func() (string, error) { return "backupclaude", nil },
+		secrets: func() secrets.Store { return w.store },
+		executable: func() (string, error) {
+			if w.exe != "" {
+				return w.exe, nil
+			}
+			return "backupclaude", nil
+		},
 		terminal:       func() bool { return w.terminal },
 		stdoutTerminal: func() bool { return w.terminal },
 		env: func() (discover.Env, error) {
@@ -86,6 +111,11 @@ func (w *world) deps() dependencies {
 		contain:    func() (*sysproc.Group, error) { w.contained++; return &sysproc.Group{}, nil },
 		notify:     w.notify,
 		running:    func([]string, []string) ([]sysproc.Process, error) { return w.running, nil },
+		path:       w.path,
+		drives:     w.drives,
+		syncProbe:  w.syncProbe,
+		releases:   w.releases,
+		runProgram: w.runProgram,
 	}
 }
 
@@ -175,7 +205,7 @@ func TestPublicCommandsAreListed(t *testing.T) {
 }
 
 func TestStubsExplainThemselves(t *testing.T) {
-	for _, name := range []string{"setup", "ui", "update", "uninstall"} {
+	for _, name := range []string{"ui"} {
 		w := newWorld(t)
 		text := w.run(name)
 		if text.code != 3 || !strings.Contains(text.stderr, name) || !strings.Contains(text.stderr, "What to do:") {

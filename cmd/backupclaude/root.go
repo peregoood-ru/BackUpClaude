@@ -94,6 +94,11 @@ func (a *app) newRootCommand() *cobra.Command {
 		a.newSelftestCommand(),
 		a.newMeasureCommand(),
 		a.newVerifyCommand(),
+		a.newSetupCommand(),
+		a.newUninstallCommand(),
+		a.newUpdateCommand(),
+		a.newInstallCommand(),
+		a.newSkillCommand(),
 	)
 	localizeHelpFlag(root, a.tr.T("flag.help"))
 	return root
@@ -114,10 +119,7 @@ func (a *app) stubCommands() []*cobra.Command {
 		name  string
 		stage int
 	}{
-		{"setup", 7},
 		{"ui", 8},
-		{"update", 7},
-		{"uninstall", 7},
 	}
 	commands := make([]*cobra.Command, 0, len(planned))
 	for _, item := range planned {

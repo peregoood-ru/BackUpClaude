@@ -195,12 +195,14 @@ func TestRunRejectsUnknownJob(t *testing.T) {
 
 // fakeScheduler remembers the tasks it was given.
 type fakeScheduler struct {
-	tasks   map[string]schedule.Task
-	removed []string
-	failOn  string
+	tasks    map[string]schedule.Task
+	removed  []string
+	failOn   string
+	installs int
 }
 
 func (f *fakeScheduler) Install(task schedule.Task) error {
+	f.installs++
 	if task.Name == f.failOn {
 		return errors.New("refused")
 	}
