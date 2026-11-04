@@ -69,6 +69,11 @@ type profileSummary struct {
 	ErrorCode    string  `json:"error_code,omitempty"`
 }
 
+// skippedJob is the result of a job whose profile the settings switch off.
+type skippedJob struct {
+	Skipped string `json:"skipped"`
+}
+
 // jobKnown reports whether job is a value of --job.
 func jobKnown(job string) bool {
 	for _, name := range schedule.JobNames() {
@@ -110,7 +115,7 @@ func (a *app) runScheduled(ctx context.Context, job string) error {
 		record.Notes = append(record.Notes, notifyNote)
 	}
 	if err == nil {
-		if job == schedule.JobClaude {
+		if job == schedule.JobClaude && current.config.Profiles.Claude {
 			a.guardClaude(ctx, current, notifier, &record)
 		}
 		record.Result, err = a.runJob(ctx, current, job, notifier, &record)
@@ -139,6 +144,10 @@ func (a *app) runScheduled(ctx context.Context, job string) error {
 		return err
 	}
 	return a.emit(record, func(w io.Writer) {
+		if _, off := record.Result.(skippedJob); off {
+			fmt.Fprintln(w, a.tr.T("run.profile_off", job))
+			return
+		}
 		fmt.Fprintln(w, a.tr.T("run.done", job, record.Seconds))
 	})
 }
@@ -161,6 +170,12 @@ func (a *app) runJob(ctx context.Context, current *session, job string, notifier
 		return a.sendSummary(ctx, current, notifier, record)
 
 	case schedule.JobClaude, schedule.JobProjects:
+		if !current.config.Profiles.Enabled(job) {
+			// A task that is still in the scheduler after the profile was switched
+			// off: it does nothing and says why. schedule install removes it.
+			record.Notes = append(record.Notes, "profile off: "+job)
+			return skippedJob{Skipped: "profile_off"}, nil
+		}
 		report, failed, err := a.saveProfiles(ctx, current, []string{job}, false)
 		if err != nil {
 			return nil, err

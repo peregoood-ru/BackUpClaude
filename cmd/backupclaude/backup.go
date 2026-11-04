@@ -65,6 +65,21 @@ func profileNames(value string) ([]string, error) {
 	return nil, i18n.E("backup.unknown_profile", value, strings.Join(profile.Names(), ", ")).Hint("backup.unknown_profile.hint").Exit(exitUsage)
 }
 
+// enabledProfiles narrows the profiles of a request to those the settings keep
+// on. A full run takes only those; a request for one profile that is off is
+// answered with the reason and the way to switch it on.
+func enabledProfiles(value string, names []string, cfg *config.Config) ([]string, error) {
+	if value == profileAll {
+		return cfg.Profiles.Names(), nil
+	}
+	for _, name := range names {
+		if !cfg.Profiles.Enabled(name) {
+			return nil, i18n.E("backup.profile_off", name).Hint("backup.profile_off.hint")
+		}
+	}
+	return names, nil
+}
+
 // planInputs gathers what a plan depends on.
 func (a *app) planInputs(layout config.Layout, cfg *config.Config) (profile.Inputs, error) {
 	manifest, err := manifests.Load(runtime.GOOS)
@@ -109,6 +124,9 @@ func (a *app) backup(ctx context.Context, value string, dryRun bool) error {
 	}
 	current, err := a.openSession()
 	if err != nil {
+		return err
+	}
+	if names, err = enabledProfiles(value, names, current.config); err != nil {
 		return err
 	}
 	report, failed, err := a.saveProfiles(ctx, current, names, dryRun)

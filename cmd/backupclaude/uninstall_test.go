@@ -19,7 +19,7 @@ func installed(t *testing.T, w *setupWorld) (repo string) {
 	repo = w.localRepo(t)
 	token := "123456:test-token-for-unit-tests"
 	w.stdin = token + "\n"
-	r := w.run("setup", "--yes", "--json", "--local", repo, "--install", "--skill", "--telegram-chat-id", "42", "--telegram-token-stdin")
+	r := w.run("setup", "--yes", "--json", "--local", repo, "--install", "--skill", "--telegram-chat-id", "42", "--telegram-token-stdin", "--save", "all")
 	if r.code != 0 {
 		t.Fatalf("setup: %+v", r)
 	}

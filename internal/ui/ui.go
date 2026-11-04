@@ -44,6 +44,7 @@ type Settings struct {
 	Extra          []string         `json:"extra"`
 	Exclude        []string         `json:"exclude"`
 	Channels       []string         `json:"channels"`
+	Profiles       config.Profiles  `json:"profiles"`
 	Tray           bool             `json:"tray"`
 	TraySupported  bool             `json:"tray_supported"`
 	PasswordStored bool             `json:"password_stored"`
@@ -57,6 +58,9 @@ type Patch struct {
 	Extra       *[]string         `json:"extra,omitempty"`
 	Exclude     *[]string         `json:"exclude,omitempty"`
 	Tray        *bool             `json:"tray,omitempty"`
+	// Profiles switches what is saved. Saving it also changes the tasks in the
+	// scheduler.
+	Profiles *config.Profiles `json:"profiles,omitempty"`
 }
 
 // envelope is the shape of every answer, the same as the command line's.

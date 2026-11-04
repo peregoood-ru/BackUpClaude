@@ -12,6 +12,7 @@ import (
 
 	"github.com/peregoood-ru/BackUpClaude/internal/config"
 	"github.com/peregoood-ru/BackUpClaude/internal/i18n"
+	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
 	"github.com/peregoood-ru/BackUpClaude/internal/tray"
 	"github.com/peregoood-ru/BackUpClaude/internal/ui"
@@ -119,7 +120,7 @@ func (b uiBackend) view(layout config.Layout, cfg *config.Config) ui.Settings {
 		Offsite: safeLocation(cfg.Repositories.Offsite), Schedule: cfg.Schedule, Retention: cfg.Retention,
 		DropPercent: cfg.Notify.DeletionDropPercent,
 		Extra:       append([]string{}, cfg.Sources.Extra...), Exclude: append([]string{}, cfg.Sources.Exclude...),
-		Channels: []string{}, Tray: cfg.Tray.Enabled, TraySupported: b.autostart().Supported(),
+		Channels: []string{}, Profiles: cfg.Profiles, Tray: cfg.Tray.Enabled, TraySupported: b.autostart().Supported(),
 	}
 	if notifier, _ := a.notifierFor(cfg); notifier != nil {
 		for _, channel := range notifier.Channels {
@@ -172,12 +173,22 @@ func (b uiBackend) Save(_ context.Context, patch ui.Patch) (ui.Settings, error) 
 	if patch.Exclude != nil {
 		cfg.Sources.Exclude = cleanList(*patch.Exclude)
 	}
+	if patch.Profiles != nil {
+		cfg.Profiles = *patch.Profiles
+	}
 	trayChanged := patch.Tray != nil && *patch.Tray != cfg.Tray.Enabled
 	if patch.Tray != nil {
 		cfg.Tray.Enabled = *patch.Tray
 	}
 	if err := config.Save(layout.ConfigFile(), cfg); err != nil {
 		return ui.Settings{}, err
+	}
+	if cfg.Profiles != previous.Profiles {
+		if err := b.applyProfiles(layout, cfg, previous.Profiles); err != nil {
+			// The tasks could not be changed: the settings must not claim they were.
+			_ = config.Save(layout.ConfigFile(), &previous)
+			return ui.Settings{}, err
+		}
 	}
 	if trayChanged {
 		if err := b.applyTray(cfg.Tray.Enabled); err != nil {
@@ -187,6 +198,32 @@ func (b uiBackend) Save(_ context.Context, patch ui.Patch) (ui.Settings, error) 
 		}
 	}
 	return b.view(layout, cfg), nil
+}
+
+// applyProfiles puts the tasks in line with a changed choice of profiles: the
+// task of a profile that was switched on is installed, that of one switched off
+// is removed. The tasks of the other jobs are not touched.
+func (b uiBackend) applyProfiles(layout config.Layout, cfg *config.Config, before config.Profiles) error {
+	executable, err := b.deps.executable()
+	if err != nil {
+		return i18n.E("cli.no_executable").Because(err)
+	}
+	scheduler := b.app().scheduler(layout)
+	for _, task := range schedule.Plan(cfg, executable) {
+		if (task.Name == schedule.JobClaude || task.Name == schedule.JobProjects) && !before.Enabled(task.Name) {
+			if err := scheduler.Install(task); err != nil {
+				return err
+			}
+		}
+	}
+	for _, name := range schedule.Unwanted(cfg) {
+		if before.Enabled(name) {
+			if err := scheduler.Remove(name); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // applyTray registers or removes the start of the icon at logon, and shows the

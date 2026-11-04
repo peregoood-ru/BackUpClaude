@@ -47,7 +47,7 @@ The program is not signed with a code-signing certificate yet. If you download t
 | --- | --- |
 | `backupclaude setup` | The wizard: checks the computer, installs restic and rclone, asks, sets up the password, repository, schedule and the first snapshot. Safe to run again |
 | `backupclaude status` | Whether the data is safe, in plain words: age of the newest snapshot, size, free space, last check, failures |
-| `backupclaude backup` | Take a snapshot now, `--profile claude` or `projects` for one of them, `--dry-run` to store nothing |
+| `backupclaude backup` | Take a snapshot now of every profile that is on (see "What to save" in [docs/install.md](docs/install.md)), `--profile claude` or `projects` for one of them, `--dry-run` to store nothing |
 | `backupclaude list` | Snapshots, sessions and projects |
 | `backupclaude restore` | Bring back a session (`--session`), a project (`--project`) or everything (`--all`) into a new folder; `--apply` also puts the missing files back in place and never replaces existing ones. See [docs/restore.md](docs/restore.md) |
 | `backupclaude doctor` | Find a problem and suggest a fix |

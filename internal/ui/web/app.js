@@ -342,7 +342,7 @@ function copyCard(copy) {
     body.push(h('ul', { class: 'list' }, (copy.profiles || []).map((p) => h('li', { class: 'row between' },
       h('span', {}, t('status.profile.' + p.profile)),
       p.last_snapshot
-        ? h('span', { class: 'badge ' + (p.stale ? 'warn' : 'ok') }, t('ui.ago', fmtAge(p.age_seconds)) + (p.stale ? ' · ' + t('ui.stale') : ''))
+        ? h('span', { class: 'badge ' + (p.disabled ? '' : (p.stale ? 'warn' : 'ok')) }, t('ui.ago', fmtAge(p.age_seconds)) + (p.disabled ? ' · ' + t('ui.profile_off') : (p.stale ? ' · ' + t('ui.stale') : '')))
         : h('span', { class: 'badge warn' }, t('ui.no_snapshots'))))));
     if (copy.size_bytes !== undefined) body.push(h('p', { class: 'muted' }, t('status.size', fmtSize(copy.size_bytes))));
   }
@@ -759,6 +759,7 @@ function drawSettings(settings) {
     exclude: settings.exclude.slice(),
     tray: settings.tray,
   };
+  const profiles = Object.assign({}, settings.profiles);
   const message = h('div', { 'aria-live': 'polite' });
 
   const number = (label, obj, key, min) => h('label', { class: 'field' }, h('span', {}, label),
@@ -772,6 +773,33 @@ function drawSettings(settings) {
   const tray = h('label', { class: 'row' },
     h('input', { type: 'checkbox', checked: draft.tray, disabled: !settings.tray_supported, onchange: (e) => { draft.tray = e.target.checked; } }),
     h('span', {}, t('ui.settings.tray')));
+
+  // The choice of what to save is applied at once: it also changes the tasks in
+  // the scheduler, so it does not wait for the Save button.
+  const profileMessage = h('div', { 'aria-live': 'polite' });
+  const profileBoxes = {};
+  const profileBox = (name) => {
+    const box = h('input', { type: 'checkbox', checked: profiles[name] });
+    box.addEventListener('change', async () => {
+      const wanted = Object.assign({}, profiles, { [name]: box.checked });
+      Object.values(profileBoxes).forEach((b) => { b.disabled = true; });
+      const env = await api('api/settings', { method: 'PUT', body: { profiles: wanted } });
+      if (!env.ok) {
+        Object.values(profileBoxes).forEach((b) => { b.disabled = false; });
+        box.checked = !box.checked;
+        profileMessage.replaceChildren(errorBox(env.error));
+        return;
+      }
+      settings.profiles = env.data.profiles;
+      drawSettings(env.data);
+      document.getElementById('settings-message').replaceChildren(h('div', { class: 'notice ok' }, t('ui.settings.profiles_saved')));
+    });
+    profileBoxes[name] = box;
+    return h('label', { class: 'row' }, box,
+      h('span', {}, h('strong', {}, t('ui.settings.profile.' + name)), ' ', h('span', { class: 'muted' }, t('ui.settings.profile.' + name + '_hint'))));
+  };
+  const profileSection = h('div', {}, h('h3', {}, t('ui.settings.profiles')), h('p', { class: 'muted' }, t('ui.settings.profiles_hint')),
+    h('div', { class: 'stack' }, profileBox('claude'), profileBox('projects')), profileMessage);
 
   const save = h('button', { class: 'btn primary', type: 'button' }, t('ui.settings.save'));
   save.addEventListener('click', async () => {
@@ -808,6 +836,7 @@ function drawSettings(settings) {
     h('section', { class: 'card' }, h('h2', {}, t('ui.settings.change')),
       h('div', { class: 'stack' },
         language,
+        profileSection,
         h('div', {}, h('h3', {}, t('ui.settings.retention')), h('p', { class: 'muted' }, t('ui.settings.retention_hint')),
           h('div', { class: 'row' },
             number(t('ui.settings.hourly'), draft.retention, 'hourly', 0), number(t('ui.settings.daily'), draft.retention, 'daily', 0),

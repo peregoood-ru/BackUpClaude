@@ -62,9 +62,19 @@ irm https://github.com/peregoood-ru/BackUpClaude/releases/latest/download/instal
 - В хранилище, где уже есть снимки, новый снимок не делается, пока не указан `--snapshot`.
 - Файл настроек, который не читается, не перезаписывается никогда.
 
+### Что сохранять
+
+Мастер спрашивает: **1. Только данные Claude** (по умолчанию) или **2. Данные Claude и папки проектов**. Данные Claude это сессии, чаты, контекст и настройки. Папки проектов это рабочие папки из транскриптов и папки, которые вы добавили в `sources.extra`; если проекты и так лежат в синхронизируемом или резервируемом месте, их можно не сохранять. Тот же выбор есть в `config.json`:
+
+```json
+"profiles": { "claude": true, "projects": false }
+```
+
+и на вкладке **Настройки** страницы `backupclaude ui`. У выключенного профиля нет задачи в планировщике, `backup` его пропускает, а `status` не считает его отставшим. Снимки, сделанные раньше, остаются и восстанавливаются; программа сама их не удаляет. Если они больше не нужны, удалите их вручную через restic: `restic forget --tag projects --prune` с репозиторием и `--password-command` программы. В `config.json` без `profiles` оба профиля включены. После правки файла выполните `backupclaude schedule install`, чтобы задачи совпали с настройками.
+
 ### Без вопросов
 
-`backupclaude setup --yes` берёт все ответы по умолчанию. У ответов есть флаги: `--local`, `--offsite` / `--no-offsite`, `--telegram-chat-id` вместе с `--telegram-token-stdin`, `--webhook-url-stdin`, `--no-notify`, `--skill` / `--no-skill`, `--install` / `--no-install`, `--projects-now`, `--no-snapshot`. С `--json` ответ один объект с шагами, секретов в нём нет. Токен читается из первой строки ввода, а не из аргумента.
+`backupclaude setup --yes` берёт все ответы по умолчанию. У ответов есть флаги: `--local`, `--offsite` / `--no-offsite`, `--telegram-chat-id` вместе с `--telegram-token-stdin`, `--webhook-url-stdin`, `--no-notify`, `--skill` / `--no-skill`, `--install` / `--no-install`, `--save claude|all|projects`, `--projects-now`, `--no-snapshot`. С `--json` ответ один объект с шагами, секретов в нём нет. Токен читается из первой строки ввода, а не из аргумента.
 
 ## Навык /backup для Claude Code
 

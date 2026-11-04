@@ -62,9 +62,19 @@ At the end the wizard explains how to write the password on paper. At a terminal
 - A repository that already holds snapshots gets no new snapshot unless you pass `--snapshot`.
 - A settings file that cannot be read is never overwritten.
 
+### What to save
+
+The wizard asks: **1. Only Claude's data** (the default) or **2. Claude's data and the folders of your projects**. Claude's data are the sessions, chats, context and settings. Project folders are the working folders found in the transcripts and the folders you added to `sources.extra`; if your projects already live in a synced or backed-up place, leave them out. The same switch is in `config.json`:
+
+```json
+"profiles": { "claude": true, "projects": false }
+```
+
+and on the **Settings** tab of `backupclaude ui`. A profile that is off has no scheduled task, `backup` skips it, and `status` does not call it late. Snapshots made earlier are kept and can be restored; the program never deletes them on its own. If you do not need them any more, remove them yourself with restic: `restic forget --tag projects --prune` with the repository and the `--password-command` of the program. A `config.json` without `profiles` keeps both on. After editing the file run `backupclaude schedule install` to bring the tasks in line.
+
 ### Without questions
 
-`backupclaude setup --yes` takes every default. The answers have flags: `--local`, `--offsite` / `--no-offsite`, `--telegram-chat-id` with `--telegram-token-stdin`, `--webhook-url-stdin`, `--no-notify`, `--skill` / `--no-skill`, `--install` / `--no-install`, `--projects-now`, `--no-snapshot`. With `--json` the answer is one object with the steps, and no secret is in it. A token is read from the first line of the input, never from an argument.
+`backupclaude setup --yes` takes every default. The answers have flags: `--local`, `--offsite` / `--no-offsite`, `--telegram-chat-id` with `--telegram-token-stdin`, `--webhook-url-stdin`, `--no-notify`, `--skill` / `--no-skill`, `--install` / `--no-install`, `--save claude|all|projects`, `--projects-now`, `--no-snapshot`. With `--json` the answer is one object with the steps, and no secret is in it. A token is read from the first line of the input, never from an argument.
 
 ## The /backup skill for Claude Code
 

@@ -77,6 +77,9 @@ type profileAge struct {
 	LastSnap   *time.Time `json:"last_snapshot,omitempty"`
 	AgeSeconds int64      `json:"age_seconds,omitempty"`
 	Stale      bool       `json:"stale,omitempty"`
+	// Disabled means the settings switch the profile off: its snapshots stay,
+	// but it is never called late.
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 // copyStatus is one of the two copies.
@@ -196,6 +199,7 @@ func (a *app) buildStatus(ctx context.Context, current *session, window time.Dur
 	report.Check = checkOf(logs, cfg, now)
 	report.RestoreTest = restoreTestOf(logs, cfg, now)
 	report.FailingJobs, report.FailedRuns = failuresOf(logs, now.Add(-window))
+	report.FailingJobs = onlyWanted(report.FailingJobs, cfg)
 
 	if state, _ := watch.Load(current.layout.WatchFile()); state != nil {
 		report.Sessions = state.Transcripts
@@ -263,7 +267,7 @@ func (a *app) readCopy(ctx context.Context, role string, restic *engine.Restic, 
 	}
 	result.Reachable = true
 	for _, name := range profile.Names() {
-		age := profileAge{Profile: name}
+		age := profileAge{Profile: name, Disabled: !cfg.Profiles.Enabled(name)}
 		for _, snapshot := range snapshots {
 			if !hasTag(snapshot.Tags, name) {
 				continue
@@ -275,7 +279,10 @@ func (a *app) readCopy(ctx context.Context, role string, restic *engine.Restic, 
 		}
 		if age.LastSnap != nil {
 			age.AgeSeconds = int64(now.Sub(*age.LastSnap).Seconds())
-			age.Stale = now.Sub(*age.LastSnap) > staleAfter(role, name, cfg)
+			age.Stale = !age.Disabled && now.Sub(*age.LastSnap) > staleAfter(role, name, cfg)
+		}
+		if age.Disabled && age.LastSnap == nil {
+			continue // never saved and switched off: nothing to say
 		}
 		result.Profiles = append(result.Profiles, age)
 	}
@@ -486,6 +493,18 @@ func restoreTestOf(runs []loggedRun, cfg *config.Config, now time.Time) restoreT
 	return status
 }
 
+// onlyWanted drops the failures of jobs the settings switch off: an old failure
+// of a profile nobody saves any more must not keep the status red.
+func onlyWanted(failures []jobFailure, cfg *config.Config) []jobFailure {
+	var kept []jobFailure
+	for _, failure := range failures {
+		if schedule.Wanted(cfg, failure.Job) {
+			kept = append(kept, failure)
+		}
+	}
+	return kept
+}
+
 // failuresOf lists the jobs whose latest run failed, and counts the failed runs
 // since the given moment.
 func failuresOf(runs []loggedRun, since time.Time) ([]jobFailure, int) {
@@ -534,6 +553,9 @@ func issuesOf(report *statusReport) []string {
 		}
 		saved := false
 		for _, age := range cp.Profiles {
+			if age.Disabled {
+				continue
+			}
 			saved = saved || age.LastSnap != nil
 			if age.Stale {
 				add(issueStale)
@@ -669,6 +691,8 @@ func (a *app) renderCopy(b *strings.Builder, c copyStatus) {
 	for _, age := range c.Profiles {
 		name := a.tr.T("status.profile." + age.Profile)
 		switch {
+		case age.Disabled:
+			line("  %s %s", a.tr.T("status.profile.last", name, a.age(time.Duration(age.AgeSeconds)*time.Second)), a.tr.T("status.profile.disabled"))
 		case age.LastSnap == nil:
 			line("  %s", a.tr.T("status.profile.never", name))
 		case age.Stale:

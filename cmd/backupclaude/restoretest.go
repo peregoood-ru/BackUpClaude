@@ -114,6 +114,9 @@ func (a *app) restoreTestCopy(ctx context.Context, current *session, restic *eng
 	work := restore.DrillFolder(filepath.Dir(current.config.Repositories.Local), time.Now())
 	defer os.RemoveAll(work)
 	for _, profile := range []string{restore.TagClaude, restore.TagProjects} {
+		if !current.config.Profiles.Enabled(profile) {
+			continue // switched off: its old snapshots are not tested
+		}
 		latest := restore.Latest(snapshots, profile)
 		if latest == nil {
 			continue

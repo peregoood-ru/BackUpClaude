@@ -47,7 +47,7 @@ backupclaude.exe setup
 | --- | --- |
 | `backupclaude setup` | Мастер: проверяет компьютер, ставит restic и rclone, задаёт вопросы, создаёт пароль, хранилище, расписание и первый снимок. Безопасно запускать повторно |
 | `backupclaude status` | В безопасности ли данные, простыми словами: возраст последнего снимка, размер, свободное место, последняя проверка, сбои |
-| `backupclaude backup` | Снимок прямо сейчас, `--profile claude` или `projects` для одного из них, `--dry-run` ничего не сохраняет |
+| `backupclaude backup` | Снимок прямо сейчас всех включённых профилей (раздел «Что сохранять» в [docs/install.ru.md](docs/install.ru.md)), `--profile claude` или `projects` для одного из них, `--dry-run` ничего не сохраняет |
 | `backupclaude list` | Снимки, сессии и проекты |
 | `backupclaude restore` | Вернуть сессию (`--session`), проект (`--project`) или всё (`--all`) в новую папку; `--apply` ещё и возвращает недостающие файлы на место и никогда не заменяет существующие. См. [docs/restore.ru.md](docs/restore.ru.md) |
 | `backupclaude doctor` | Найти проблему и подсказать решение |

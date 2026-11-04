@@ -11,7 +11,7 @@
 | **State** | The first screen answers one question: is the data safe or is action needed. Under it: how long ago each copy was updated, size, free space on the disks, the last repository check and the last trial restore, failed tasks, the scheduled tasks as Windows holds them. The **Save now** button takes a snapshot of Claude's data and of the projects at once. An external copy that is not set up is said so plainly |
 | **Snapshots** | Every snapshot, newest first, with the number of files and the size; filter by Claude data or projects |
 | **Restore** | Pick a session (a session missing on this computer is marked *only in the copy*) or a project. **Take out into a separate folder** is the safe way: the files are laid out in a new folder and nothing on the computer changes. **Put back in place** first shows what would happen, and only a confirmation in a separate window does it. Only missing files come back; a file that exists is never overwritten |
-| **Settings** | Where the copies are, the schedule, whether the password is stored (the page never shows it), notification channels. Changeable: language, how many snapshots to keep, the threshold of the alarm about deleted sessions, extra folders to save, folders not to save, the status icon |
+| **Settings** | Where the copies are, the schedule, whether the password is stored (the page never shows it), notification channels. Changeable: what to save (Claude's data, the project folders; applied at once, it adds or removes the scheduled task), language, how many snapshots to keep, the threshold of the alarm about deleted sessions, extra folders to save, folders not to save, the status icon |
 
 ![Restore](screenshots/restore-light.jpg)
 

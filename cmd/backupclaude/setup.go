@@ -41,6 +41,8 @@ type setupOptions struct {
 	install, noInstall   bool
 	snapshot, noSnapshot bool
 	projectsNow          bool
+	// save is the value of --save: which profiles to keep.
+	save string
 }
 
 // Gigabyte in bytes for the space checks (binary, like the disks report it).
@@ -91,6 +93,7 @@ func (a *app) newSetupCommand() *cobra.Command {
 	f.BoolVar(&o.noInstall, "no-install", false, a.tr.T("flag.setup.no_install"))
 	f.BoolVar(&o.snapshot, "snapshot", false, a.tr.T("flag.setup.snapshot"))
 	f.BoolVar(&o.noSnapshot, "no-snapshot", false, a.tr.T("flag.setup.no_snapshot"))
+	f.StringVar(&o.save, "save", "", a.tr.T("flag.setup.save"))
 	f.BoolVar(&o.projectsNow, "projects-now", false, a.tr.T("flag.setup.projects_now"))
 	return cmd
 }
@@ -138,6 +141,8 @@ type answers struct {
 	// chat and token belong to the Telegram channel, webhook to the webhook one.
 	chat, token string
 	webhook     string
+	// profiles is what to save.
+	profiles config.Profiles
 }
 
 type setupRun struct {
@@ -157,6 +162,8 @@ type setupRun struct {
 	schedulerOK bool
 	claudeHome  discover.Location
 	failed      bool
+	// chosen is what the person decided to save; it is set by the questions.
+	chosen config.Profiles
 }
 
 func (a *app) setup(ctx context.Context, o setupOptions) error {
@@ -483,6 +490,10 @@ func (r *setupRun) tools() error {
 func (r *setupRun) questions(existing *config.Config) (answers, error) {
 	var given answers
 	var err error
+	if given.profiles, err = r.askProfiles(existing); err != nil {
+		return given, err
+	}
+	r.chosen = given.profiles
 	if given.local, err = r.askLocal(existing); err != nil {
 		return given, err
 	}
@@ -493,6 +504,84 @@ func (r *setupRun) questions(existing *config.Config) (answers, error) {
 		return given, err
 	}
 	return given, nil
+}
+
+// parseSave reads the value of --save: claude, projects, all, or a list.
+func parseSave(value string) (config.Profiles, bool) {
+	var chosen config.Profiles
+	for _, part := range strings.Split(value, ",") {
+		switch strings.ToLower(strings.TrimSpace(part)) {
+		case config.ProfileClaude:
+			chosen.Claude = true
+		case config.ProfileProjects:
+			chosen.Projects = true
+		case "all":
+			chosen = config.Profiles{Claude: true, Projects: true}
+		default:
+			return config.Profiles{}, false
+		}
+	}
+	return chosen, chosen.Claude || chosen.Projects
+}
+
+// profilesWords names a choice for a person.
+func (a *app) profilesWords(p config.Profiles) string {
+	switch {
+	case p.Claude && p.Projects:
+		return a.tr.T("setup.profiles.option_all")
+	case p.Projects:
+		return a.tr.T("setup.profiles.option_projects")
+	}
+	return a.tr.T("setup.profiles.option_claude")
+}
+
+// askProfiles asks what to save. A new installation defaults to Claude's data
+// only; a rerun shows the current choice and keeps it on Enter. A script
+// answers with --save, or keeps the current choice.
+func (r *setupRun) askProfiles(existing *config.Config) (config.Profiles, error) {
+	a := r.a
+	current := config.Profiles{Claude: true}
+	if existing != nil {
+		current = existing.Profiles
+	}
+	chosen := current
+	switch {
+	case r.o.save != "":
+		parsed, ok := parseSave(r.o.save)
+		if !ok {
+			return chosen, i18n.E("setup.bad_save", r.o.save).Hint("setup.bad_save.hint").Exit(exitUsage)
+		}
+		chosen = parsed
+	case r.interactive:
+		options := []string{a.tr.T("setup.profiles.option_claude"), a.tr.T("setup.profiles.option_all")}
+		def := 0
+		switch {
+		case current.Claude && current.Projects:
+			def = 1
+		case current.Projects:
+			options = append(options, a.tr.T("setup.profiles.option_projects"))
+			def = 2
+		}
+		if existing != nil {
+			r.say("setup.profiles.current", a.profilesWords(current))
+		}
+		choice, err := r.p.choose(a.tr.T("setup.q.profiles"), options, def)
+		if err != nil {
+			return chosen, err
+		}
+		chosen = []config.Profiles{{Claude: true}, {Claude: true, Projects: true}, {Projects: true}}[choice]
+	}
+	if r.o.projectsNow && !chosen.Projects {
+		return chosen, i18n.E("setup.projects_now_off").Hint("setup.projects_now_off.hint").Exit(exitUsage)
+	}
+	status := stepChanged
+	if existing != nil && chosen == current {
+		status = stepKept
+	} else if existing == nil && chosen == (config.Profiles{Claude: true}) && r.o.save == "" {
+		status = stepOK
+	}
+	r.step("profiles", status, a.tr.T("setup.profiles.chosen", a.profilesWords(chosen)), "")
+	return chosen, nil
 }
 
 // suggestLocal proposes a folder for the local copy: on the roomiest disk that
@@ -899,6 +988,7 @@ func (r *setupRun) settings(existing *config.Config, given answers) (*config.Con
 		cfg.Version = config.CurrentVersion
 	}
 	cfg.Repositories.Local = given.local
+	cfg.Profiles = given.profiles
 	if existing == nil || r.offsiteAnswered() {
 		cfg.Repositories.Offsite = given.offsite
 	}
@@ -1003,6 +1093,18 @@ func (r *setupRun) schedule(cfg *config.Config) error {
 		}
 		added++
 	}
+	// The tasks of a profile that is switched off go, so that a rerun with
+	// another choice leaves nothing behind.
+	for _, name := range schedule.Unwanted(cfg) {
+		if _, left := byName[name]; !left {
+			continue
+		}
+		if err := scheduler.Remove(name); err != nil {
+			return err
+		}
+		added++
+		r.step("schedule_"+name, stepChanged, a.tr.T("setup.schedule.removed_off", name), "")
+	}
 	if err := os.MkdirAll(r.layout.LogsDir(), 0o700); err != nil {
 		return i18n.E("schedule.work_failed", r.layout.LogsDir()).Because(err)
 	}
@@ -1088,8 +1190,12 @@ func (r *setupRun) snapshot(current *session, repo repoResult) {
 		r.step("snapshot", stepSkipped, a.tr.T("setup.snapshot.skipped"), "")
 		return
 	}
+	first := config.ProfileClaude
+	if !r.chosen.Claude {
+		first = config.ProfileProjects
+	}
 	if !repo.Created && !r.o.snapshot {
-		have, err := current.restic.Snapshots(r.ctx, "claude")
+		have, err := current.restic.Snapshots(r.ctx, first)
 		if err == nil && len(have) > 0 {
 			var last time.Time
 			for _, snap := range have {
@@ -1102,10 +1208,13 @@ func (r *setupRun) snapshot(current *session, repo repoResult) {
 		}
 	}
 	r.say("setup.snapshot.working")
-	r.takeSnapshot(current, "claude")
+	r.takeSnapshot(current, first)
 
-	projects := r.o.projectsNow
-	if !projects && r.interactive && repo.Created {
+	// Projects are the only profile in the settings: nothing else to save now.
+	// With Claude's data on, they are an extra question (the first time is long)
+	// that is asked only when the projects are on.
+	projects := r.chosen.Projects && r.o.projectsNow
+	if !projects && r.chosen.Projects && r.chosen.Claude && r.interactive && repo.Created {
 		projects, _ = r.p.yesNo(a.tr.T("setup.q.projects_now"), false)
 		if !projects {
 			r.say("setup.snapshot.projects_later")

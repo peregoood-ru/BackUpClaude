@@ -57,6 +57,9 @@ func (a *app) scheduler(layout config.Layout) schedule.Scheduler {
 type scheduleJob struct {
 	Job             string   `json:"job"`
 	Installed       bool     `json:"installed"`
+	// Disabled means the settings switch the profile of this job off: there
+	// should be no task, and InSync says whether there is none.
+	Disabled        bool     `json:"disabled,omitempty"`
 	InSync          bool     `json:"in_sync"`
 	EveryHours      float64  `json:"every_hours,omitempty"`
 	WantEveryHours  float64  `json:"want_every_hours"`
@@ -99,15 +102,29 @@ func (a *app) scheduleInstall() error {
 		return i18n.E("cli.no_executable").Because(err)
 	}
 	scheduler := a.scheduler(layout)
-	for _, task := range schedule.Plan(cfg, executable) {
-		if err := scheduler.Install(task); err != nil {
-			return err
-		}
+	if err := syncTasks(scheduler, cfg, executable); err != nil {
+		return err
 	}
 	if err := os.MkdirAll(layout.LogsDir(), 0o700); err != nil {
 		return i18n.E("schedule.work_failed", layout.LogsDir()).Because(err)
 	}
 	return a.printSchedule(cfg, scheduler, "schedule.installed")
+}
+
+// syncTasks installs the tasks the settings call for and removes those of the
+// profiles that are switched off.
+func syncTasks(scheduler schedule.Scheduler, cfg *config.Config, executable string) error {
+	for _, task := range schedule.Plan(cfg, executable) {
+		if err := scheduler.Install(task); err != nil {
+			return err
+		}
+	}
+	for _, name := range schedule.Unwanted(cfg) {
+		if err := scheduler.Remove(name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *app) scheduleRemove() error {
@@ -156,6 +173,10 @@ func (a *app) printSchedule(cfg *config.Config, scheduler schedule.Scheduler, he
 			job = a.describeTask(want, info)
 		}
 		report.Jobs = append(report.Jobs, job)
+	}
+	for _, name := range schedule.Unwanted(cfg) {
+		_, left := byName[name]
+		report.Jobs = append(report.Jobs, scheduleJob{Job: name, Disabled: true, Installed: left, InSync: !left})
 	}
 	return a.emit(report, func(w io.Writer) {
 		if headline != "" {
@@ -215,6 +236,14 @@ func (a *app) yesNo(value bool) string {
 }
 
 func (a *app) printJob(w io.Writer, job scheduleJob) {
+	if job.Disabled {
+		key := "schedule.job.disabled"
+		if job.Installed {
+			key = "schedule.job.disabled_left"
+		}
+		fmt.Fprintln(w, a.tr.T(key, job.Job))
+		return
+	}
 	if !job.Installed {
 		fmt.Fprintln(w, a.tr.T("schedule.job.missing", job.Job))
 		return

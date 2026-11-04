@@ -137,7 +137,7 @@ if ($LASTEXITCODE -ne 0) { $ps | ForEach-Object { Write-Host "  $_" } }
 Check (Test-Path $installed) 'install.ps1 put the program into the data folder'
 
 Step 'setup (first run, no questions)'
-$r = Invoke-App $installed @('setup', '--yes', '--json', '--local', $repoDir, '--skill', '--projects-now', '--lang', 'en')
+$r = Invoke-App $installed @('setup', '--yes', '--json', '--local', $repoDir, '--skill', '--save', 'all', '--projects-now', '--lang', 'en')
 Check ($r.Code -eq 0 -and $r.Json.ok -eq $true) 'setup finished with exit code 0'
 if ($r.Json) {
   $bad = @($r.Json.data.steps | Where-Object { $_.status -eq 'fail' })

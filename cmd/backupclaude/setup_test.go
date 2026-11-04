@@ -117,7 +117,7 @@ func fileHash(t *testing.T, path string) [32]byte {
 func TestSetupDoesItAllWithoutQuestions(t *testing.T) {
 	w := newSetupWorld(t)
 	local := w.localRepo(t)
-	r := w.run("setup", "--yes", "--json", "--local", local, "--skill")
+	r := w.run("setup", "--yes", "--json", "--local", local, "--skill", "--save", "all")
 	if r.code != 0 {
 		t.Fatalf("%+v", r)
 	}
@@ -289,17 +289,18 @@ func TestSetupInteractiveAsksAndTakesDefaults(t *testing.T) {
 	w.terminal = true
 	synced := filepath.Join(filepath.VolumeName(t.TempDir())+string(filepath.Separator), "Users", "Ivan", "Dropbox", "repo")
 	local := w.localRepo(t)
-	// install: Enter (yes); local: a Dropbox folder, refused, then a good one;
-	// offsite: Enter (skip); notify: Enter (none); skill: Enter (yes);
-	// projects now: Enter (no); show the password: n.
-	w.stdin = "\n" + synced + "\n" + local + "\n\n\n\n\nn\n"
+	// install: Enter (yes); what to save: Enter (Claude only); local: a Dropbox
+	// folder, refused, then a good one; offsite: Enter (skip); notify: Enter
+	// (none); skill: Enter (yes); show the password: n. The projects are not
+	// asked about, since they are not among what is saved.
+	w.stdin = "\n\n" + synced + "\n" + local + "\n\n\n\nn\n"
 	r := w.run("setup")
 	if r.code != 0 {
 		t.Fatalf("%+v", r)
 	}
 	for _, want := range []string{
 		"Install the program for your user in", "Where to keep the local copy", "lies inside Dropbox",
-		"External copy:", "Where to send failure messages?", "Add the /backup skill", "Also save your projects now?",
+		"External copy:", "Where to send failure messages?", "Add the /backup skill", "What to save?", "Only Claude's data",
 		"Show the password now", "BackUpClaude setup.",
 	} {
 		if !strings.Contains(r.stdout, want) {
@@ -310,6 +311,12 @@ func TestSetupInteractiveAsksAndTakesDefaults(t *testing.T) {
 	cfg, err := config.Load(layout.ConfigFile())
 	if err != nil || cfg.Repositories.Local != local {
 		t.Fatalf("%+v %v", cfg, err)
+	}
+	if cfg.Profiles != (config.Profiles{Claude: true}) {
+		t.Errorf("a new installation must save only Claude's data: %+v", cfg.Profiles)
+	}
+	if strings.Contains(r.stdout, "Also save your projects now?") {
+		t.Error("the projects were asked about although they are off")
 	}
 	password, _ := w.store.Get(secrets.RepoPasswordKey)
 	if strings.Contains(r.stdout, password) {
@@ -327,7 +334,7 @@ func TestSetupInteractiveCanShowThePasswordToAPerson(t *testing.T) {
 	w := newSetupWorld(t)
 	w.terminal = true
 	// install no, local default, offsite skip, notify none, skill no, projects no, show yes, confirm yes.
-	w.stdin = "n\n" + w.localRepo(t) + "\n\n\nn\n\ny\nyes\n"
+	w.stdin = "n\n\n" + w.localRepo(t) + "\n\n\nn\ny\nyes\n"
 	r := w.run("setup")
 	if r.code != 0 {
 		t.Fatalf("%+v", r)
@@ -665,7 +672,7 @@ func TestSetupReportsAFailedFirstSnapshot(t *testing.T) {
 func TestSetupProjectsNow(t *testing.T) {
 	w := newSetupWorld(t)
 	fakehome.Transcript(t, w.home, "x", "a", filepath.Join(w.home, filepath.FromSlash(fakehome.Repository)))
-	r := w.run("setup", "--yes", "--json", "--local", w.localRepo(t), "--no-install", "--projects-now")
+	r := w.run("setup", "--yes", "--json", "--local", w.localRepo(t), "--no-install", "--projects-now", "--save", "all")
 	if r.code != 0 {
 		t.Fatalf("%+v", r)
 	}

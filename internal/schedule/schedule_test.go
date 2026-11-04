@@ -369,3 +369,26 @@ func TestConsoleWindowIsAvoidedWithAHeadlessHost(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPlanLeavesOutAProfileThatIsOff(t *testing.T) {
+	cfg := config.Default()
+	cfg.Profiles.Projects = false
+	names := map[string]bool{}
+	for _, task := range Plan(&cfg, "exe") {
+		names[task.Name] = true
+	}
+	if names[JobProjects] || !names[JobClaude] || len(names) != len(JobNames())-1 {
+		t.Errorf("tasks: %v", names)
+	}
+	if got := Unwanted(&cfg); len(got) != 1 || got[0] != JobProjects {
+		t.Errorf("unwanted: %v", got)
+	}
+	cfg.Profiles = config.Profiles{Projects: true}
+	if Wanted(&cfg, JobClaude) || !Wanted(&cfg, JobProjects) || !Wanted(&cfg, JobCleanup) {
+		t.Error("wrong tasks wanted")
+	}
+	both := config.Default()
+	if len(Unwanted(&both)) != 0 {
+		t.Errorf("unwanted with both on: %v", Unwanted(&both))
+	}
+}

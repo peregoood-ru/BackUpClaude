@@ -246,3 +246,62 @@ func TestTrayIsOffByDefaultAndWrittenOnlyWhenOn(t *testing.T) {
 		t.Fatalf("%+v %v", again, err)
 	}
 }
+
+func TestProfilesDefaultToBothForAnOldFile(t *testing.T) {
+	cfg, err := Parse([]byte(validJSON(t)), "c.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Profiles != (Profiles{Claude: true, Projects: true}) {
+		t.Errorf("a file without the field must keep both on: %+v", cfg.Profiles)
+	}
+	if got := cfg.Profiles.Names(); len(got) != 2 || got[0] != ProfileClaude || got[1] != ProfileProjects {
+		t.Errorf("%v", got)
+	}
+}
+
+func TestProfilesCanBeSwitchedOffButNotAll(t *testing.T) {
+	path, _ := json.Marshal(t.TempDir())
+	body := func(profiles string) []byte {
+		return []byte(fmt.Sprintf(`{"version": 1, "repositories": {"local": %s}, "profiles": %s}`, path, profiles))
+	}
+	cfg, err := Parse(body(`{"projects": false}`), "c.json")
+	if err != nil || cfg.Profiles != (Profiles{Claude: true}) || cfg.Profiles.Enabled(ProfileProjects) || !cfg.Profiles.Enabled(ProfileClaude) {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	if cfg, err = Parse(body(`{"claude": false}`), "c.json"); err != nil || cfg.Profiles != (Profiles{Projects: true}) {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	_, err = Parse(body(`{"claude": false, "projects": false}`), "c.json")
+	d := description(t, err)
+	if !strings.Contains(strings.Join(d.Details, " "), "at least one") {
+		t.Errorf("%+v", d)
+	}
+	if _, err = Parse(body(`{"everything": true}`), "c.json"); err == nil {
+		t.Error("an unknown profile was accepted")
+	}
+	if (Profiles{Claude: true}).Enabled("nothing") {
+		t.Error("an unknown name is on")
+	}
+}
+
+func TestProfilesRoundTripAndSaveRefusesNone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := Default()
+	cfg.Repositories.Local = t.TempDir()
+	cfg.Profiles = Profiles{Claude: true}
+	if err := Save(path, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	back, err := Load(path)
+	if err != nil || back.Profiles != (Profiles{Claude: true}) {
+		t.Fatalf("%+v %v", back, err)
+	}
+	cfg.Profiles = Profiles{}
+	if err := Save(path, &cfg); err == nil {
+		t.Error("a settings file that saves nothing was accepted")
+	}
+	if again, err := Load(path); err != nil || again.Profiles != (Profiles{Claude: true}) {
+		t.Errorf("the refused save changed the file: %+v %v", again, err)
+	}
+}
