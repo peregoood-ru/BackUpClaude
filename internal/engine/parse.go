@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/i18n"
@@ -36,12 +37,45 @@ type RestoreSummary struct {
 
 // Snapshot is one entry of restic snapshots --json.
 type Snapshot struct {
-	ID       string    `json:"id"`
-	ShortID  string    `json:"short_id"`
-	Time     time.Time `json:"time"`
-	Hostname string    `json:"hostname"`
-	Paths    []string  `json:"paths"`
-	Tags     []string  `json:"tags,omitempty"`
+	ID       string           `json:"id"`
+	ShortID  string           `json:"short_id"`
+	Time     time.Time        `json:"time"`
+	Hostname string           `json:"hostname"`
+	Paths    []string         `json:"paths"`
+	Tags     []string         `json:"tags,omitempty"`
+	Summary  *SnapshotSummary `json:"summary,omitempty"`
+}
+
+// SnapshotSummary is what restic remembers about the run that made a snapshot.
+type SnapshotSummary struct {
+	TotalFilesProcessed int64 `json:"total_files_processed"`
+	TotalBytesProcessed int64 `json:"total_bytes_processed"`
+	DataAdded           int64 `json:"data_added"`
+}
+
+// Node is one entry of a snapshot's file tree.
+type Node struct {
+	Name  string    `json:"name"`
+	Type  string    `json:"type"`
+	Path  string    `json:"path"`
+	Size  int64     `json:"size"`
+	Mtime time.Time `json:"mtime"`
+}
+
+// Node types.
+const (
+	NodeFile = "file"
+	NodeDir  = "dir"
+)
+
+// parseNode reads one line of restic ls --json. The first line describes the
+// snapshot and has no node fields.
+func parseNode(line []byte) (Node, bool) {
+	var node Node
+	if json.Unmarshal(line, &node) != nil || node.Path == "" || node.Type == "" {
+		return Node{}, false
+	}
+	return node, true
 }
 
 // ItemError is a file restic could not process during a backup.
@@ -49,6 +83,17 @@ type ItemError struct {
 	Item    string `json:"item"`
 	During  string `json:"during"`
 	Message string `json:"message"`
+}
+
+// metadataOnlyPrefix starts restic's message when a file's attributes could not
+// be read. If restic ever rewords it, such files count as not saved, which is the
+// safe direction.
+const metadataOnlyPrefix = "incomplete metadata for "
+
+// MetadataOnly reports a problem with a file's attributes: its content was
+// stored. Virtual disks such as Google Drive cause this on every file.
+func (e ItemError) MetadataOnly() bool {
+	return strings.HasPrefix(e.Message, metadataOnlyPrefix)
 }
 
 type messageHeader struct {

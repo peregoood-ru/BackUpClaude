@@ -89,6 +89,7 @@ func (a *app) doctor(ctx context.Context) error {
 	add(c)
 	add(a.checkRepository(ctx, cfg, restic, passwordStored))
 	add(a.checkClaudeData())
+	add(a.checkDesktopData())
 
 	report.Healthy = true
 	for _, item := range report.Checks {
@@ -236,7 +237,7 @@ func (a *app) checkClaudeData() check {
 	if err != nil {
 		return a.failed("claude_data", err)
 	}
-	env, err := discover.CurrentEnv()
+	env, err := a.deps.env()
 	if err != nil {
 		return a.failed("claude_data", err)
 	}
@@ -246,4 +247,24 @@ func (a *app) checkClaudeData() check {
 			Message: a.tr.T("doctor.claude.absent", found.Home.Path), Hint: a.tr.T("doctor.claude.absent.hint")}
 	}
 	return check{ID: "claude_data", Status: statusOK, Message: a.tr.T("doctor.claude.ok", found.Home.Path)}
+}
+
+func (a *app) checkDesktopData() check {
+	manifest, err := manifests.Load(runtime.GOOS)
+	if err != nil {
+		return a.failed("desktop_data", err)
+	}
+	env, err := a.deps.env()
+	if err != nil {
+		return a.failed("desktop_data", err)
+	}
+	found := discover.Locate(manifest, env)
+	if len(found.Desktop) == 0 {
+		return check{ID: "desktop_data", Status: statusSkip, Message: a.tr.T("doctor.desktop.absent")}
+	}
+	paths := make([]string, len(found.Desktop))
+	for i, location := range found.Desktop {
+		paths[i] = location.Path
+	}
+	return check{ID: "desktop_data", Status: statusOK, Message: a.tr.T("doctor.desktop.ok", strings.Join(paths, "; "))}
 }

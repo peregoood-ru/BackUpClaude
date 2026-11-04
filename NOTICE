@@ -20,5 +20,18 @@ github.com/godbus/dbus           BSD 2-Clause License
 github.com/inconshreveable/mousetrap  Apache License 2.0
 golang.org/x/sys, golang.org/x/term  BSD 3-Clause License
 
-Ideas and lists borrowed from other projects are recorded here when they are
-taken. No code under the GPL is used.
+Ideas and lists borrowed from other projects
+--------------------------------------------
+No code was copied from any of them. No code under the GPL is used.
+
+claude-moove   https://github.com/paulgegenyi/claude-moove   MIT License
+    The list of what to copy from Claude's folders and what never to copy in
+    manifests/*.json follows engine/README.md, checked on 2026-11-01. So does the
+    list of rebuildable project folders, and the rule that build folders such as
+    dist are left out only inside a git repository.
+
+Claude Vault   https://github.com/Krimchanin/claude-vault    MIT License
+    The search for Desktop data under %LOCALAPPDATA%\Packages\*\LocalCache\Roaming,
+    %LOCALAPPDATA% and %APPDATA%, recognised by what the folder holds, follows
+    detect_claude_root in src-tauri/src/lib.rs, checked on 2026-11-01. Unlike that
+    function, BackUpClaude keeps every folder it finds, not only the first.

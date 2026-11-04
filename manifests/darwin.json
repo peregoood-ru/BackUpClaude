@@ -1,8 +1,29 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "os": "darwin",
-  "claude_home": "~/.claude",
-  "desktop_roots": ["~/Library/Application Support/Claude"],
-  "include": [],
-  "exclude": []
+  "claude": {
+    "home": "~/.claude",
+    "transcripts": "projects",
+    "files": ["~/.claude.json", "~/AGENTS.md"],
+    "include": ["projects", "file-history", "skills", "plugins", "settings.json", "settings.local.json", "history.jsonl"],
+    "required": ["projects"],
+    "exclude": [".credentials.json", "cache", "telemetry", "sessions", "session-env", "shell-snapshots", "daemon*", "downloads", "statsig"]
+  },
+  "desktop": {
+    "roots": ["~/Library/Application Support/Claude"],
+    "markers": ["claude-code-sessions", "local-agent-mode-sessions", "claude_desktop_config.json"],
+    "session_dirs": ["claude-code-sessions", "local-agent-mode-sessions"],
+    "cowork_dir": "local-agent-mode-sessions",
+    "include": ["claude-code-sessions", "local-agent-mode-sessions", "config.json", "claude_desktop_config.json", "Local Storage", "IndexedDB"],
+    "exclude": ["vm_bundles", "claude-code", "claude-code-vm", "Partitions", "Cache", "Code Cache", "GPUCache", "logs", "Crashpad", "sentry", "Network"],
+    "locked_ok": ["Local Storage", "IndexedDB"]
+  },
+  "never": [".credentials.json", "vm_bundles", "node_modules", ".venv", "venv", "__pycache__"],
+  "projects": {
+    "not_projects": ["~/.claude", "~/Library/Application Support/Claude", "/tmp", "/private/tmp", "/private/var/folders", "%TMPDIR%"],
+    "worktree_dirs": [".claude/worktrees"],
+    "exclude": [".next", ".nuxt", ".gradle", ".terraform", "Pods", ".cache", ".pytest_cache", ".ruff_cache", ".mypy_cache", "*.gdoc", "*.gsheet", "*.gslides"],
+    "exclude_in_git": ["dist", "build", "target", "coverage", "out"],
+    "media_extensions": ["mp4", "mov", "avi", "mkv", "mp3", "wav", "flac", "m4a", "jpg", "jpeg", "png", "heic"]
+  }
 }

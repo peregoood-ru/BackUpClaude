@@ -34,11 +34,7 @@ func (a *app) openSession() (*session, error) {
 	if err != nil {
 		return nil, err
 	}
-	installer, err := a.installer(layout)
-	if err != nil {
-		return nil, err
-	}
-	tool, err := installer.Locate(engine.ToolRestic)
+	binary, err := a.resticBinary(layout)
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +46,27 @@ func (a *app) openSession() (*session, error) {
 		layout: layout,
 		config: cfg,
 		restic: &engine.Restic{
-			Binary:          tool.Path,
+			Binary:          binary,
 			Repo:            cfg.Repositories.Local,
 			PasswordCommand: engine.PasswordCommand(executable, resticPasswordCommand),
 			CacheDir:        layout.CacheDir(),
 		},
 	}, nil
+}
+
+func (a *app) resticBinary(layout config.Layout) (string, error) {
+	if a.deps.resticPath != nil {
+		return a.deps.resticPath(), nil
+	}
+	installer, err := a.installer(layout)
+	if err != nil {
+		return "", err
+	}
+	tool, err := installer.Locate(engine.ToolRestic)
+	if err != nil {
+		return "", err
+	}
+	return tool.Path, nil
 }
 
 func (a *app) newRepoCommand() *cobra.Command {

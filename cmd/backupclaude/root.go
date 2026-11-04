@@ -79,12 +79,16 @@ func (a *app) newRootCommand() *cobra.Command {
 
 	root.AddCommand(a.stubCommands()...)
 	root.AddCommand(
+		a.newBackupCommand(),
+		a.newListCommand(),
 		a.newDoctorCommand(),
 		a.newPasswordCommand(),
 		a.newResticPasswordCommand(),
 		a.newToolsCommand(),
 		a.newRepoCommand(),
 		a.newSelftestCommand(),
+		a.newMeasureCommand(),
+		a.newVerifyCommand(),
 	)
 	localizeHelpFlag(root, a.tr.T("flag.help"))
 	return root
@@ -107,8 +111,6 @@ func (a *app) stubCommands() []*cobra.Command {
 	}{
 		{"setup", 7},
 		{"status", 5},
-		{"backup", 2},
-		{"list", 2},
 		{"restore", 6},
 		{"ui", 8},
 		{"update", 7},

@@ -61,7 +61,11 @@ func fakeRestic(mode string) {
 		fmt.Fprintln(os.Stderr, `{"message_type":"error","error":{"message":"access denied"},"during":"restore","item":"/data/file.txt"}`)
 		exitWith(1, "There were 1 errors")
 	case "snapshots":
-		fmt.Println(`[{"id":"deadbeef00","short_id":"deadbeef","time":"2026-11-01T10:00:00.5+03:00","hostname":"pc","paths":["D:\\x"],"tags":["selftest"]}]`)
+		fmt.Println(`[{"id":"deadbeef00","short_id":"deadbeef","time":"2026-11-01T10:00:00.5+03:00","hostname":"pc","paths":["D:\\x"],"tags":["selftest"],"summary":{"total_files_processed":7,"total_bytes_processed":70}}]`)
+	case "ls":
+		fmt.Println(`{"time":"2026-11-01T10:00:00+03:00","paths":["/data"],"id":"deadbeef00","short_id":"deadbeef","struct_type":"snapshot","message_type":"snapshot"}`)
+		fmt.Println(`{"name":"data","type":"dir","path":"/data","size":0,"mtime":"2026-11-01T10:00:00+03:00","struct_type":"node","message_type":"node"}`)
+		fmt.Println(`{"name":"файл.txt","type":"file","path":"/data/файл.txt","size":12,"mtime":"2026-11-01T10:00:00+03:00","struct_type":"node","message_type":"node"}`)
 	case "snapshots-empty":
 		fmt.Println(`[]`)
 	case "missing":
@@ -171,6 +175,49 @@ func TestBackupParsesSummaryAndPassesOptions(t *testing.T) {
 	}
 }
 
+func TestBackupPassesProfileOptions(t *testing.T) {
+	r, record := fakeClient(t, "backup")
+	_, err := r.Backup(context.Background(), BackupOptions{
+		Paths: []string{"/data"}, Tags: []string{"claude"}, ExcludeFile: "/excludes.txt", GroupByTags: true, DryRun: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := strings.Join(recorded(t, record).Args, " ")
+	if !strings.HasSuffix(args, "--tag claude --iexclude-file /excludes.txt --group-by host,tags --dry-run -- /data") {
+		t.Errorf("args = %s", args)
+	}
+}
+
+func TestMetadataOnly(t *testing.T) {
+	if !(ItemError{Message: "incomplete metadata for D:\\x: get EA failed"}).MetadataOnly() {
+		t.Error("metadata problem not recognised")
+	}
+	if (ItemError{Message: "failed to save D:\\x: read: Incorrect function."}).MetadataOnly() {
+		t.Error("a file that was not saved must not pass as a metadata problem")
+	}
+}
+
+func TestLsReadsNodesAndSkipsTheSnapshotLine(t *testing.T) {
+	r, record := fakeClient(t, "ls")
+	var nodes []Node
+	if err := r.Ls(context.Background(), "deadbeef", []string{"/data"}, func(node Node) { nodes = append(nodes, node) }); err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 2 || nodes[0].Type != NodeDir || nodes[1].Type != NodeFile || nodes[1].Name != "файл.txt" || nodes[1].Size != 12 {
+		t.Fatalf("nodes = %+v", nodes)
+	}
+	if args := strings.Join(recorded(t, record).Args, " "); !strings.HasSuffix(args, "--recursive deadbeef /data") {
+		t.Errorf("without --recursive restic shows only direct children: %s", args)
+	}
+	if err := r.Ls(context.Background(), "deadbeef", nil, func(Node) {}); err != nil {
+		t.Fatal(err)
+	}
+	if args := recorded(t, record).Args; slices.Contains(args, "--recursive") {
+		t.Errorf("args = %v", args)
+	}
+}
+
 func TestBackupIncompleteKeepsSummaryAndItems(t *testing.T) {
 	r, _ := fakeClient(t, "backup-incomplete")
 	result, err := r.Backup(context.Background(), BackupOptions{Paths: []string{"/data"}})
@@ -226,6 +273,9 @@ func TestSnapshots(t *testing.T) {
 	}
 	if len(snapshots) != 1 || snapshots[0].ShortID != "deadbeef" || snapshots[0].Tags[0] != "selftest" || snapshots[0].Time.IsZero() {
 		t.Errorf("snapshots = %+v", snapshots)
+	}
+	if snapshots[0].Summary == nil || snapshots[0].Summary.TotalFilesProcessed != 7 {
+		t.Errorf("summary = %+v", snapshots[0].Summary)
 	}
 	if args := recorded(t, record).Args; !slices.Contains(args, "--tag") {
 		t.Errorf("args = %v", args)
