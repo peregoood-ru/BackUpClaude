@@ -85,7 +85,7 @@ Without flags at a terminal, `backupclaude restore` asks what to bring back and 
 ## Security
 
 - Data is encrypted on your computer before it leaves. Storage only sees unreadable files.
-- The password lives in the OS key store: Credential Manager on Windows, Keychain on macOS, Secret Service on Linux. It is never printed, logged or passed in an argument; restic gets it through `--password-command`. `password --show` works only for a person at a terminal.
+- The password lives in the OS key store: Credential Manager on Windows, Keychain on macOS, Secret Service on Linux. It is never printed, logged or passed in an argument; restic gets it through `--password-command`. `password --show` works only for a person at a terminal. `password change` replaces the password in every copy (see `docs/password.md`).
 - **Without the password the copies cannot be opened, and nobody can recover it.** The wizard shows how to copy it to paper.
 - Restore never overwrites an existing file.
 - Downloads of restic, rclone and of updates are checked against SHA-256 before they are used. restic and rclone are pinned in `tools.lock.json`.

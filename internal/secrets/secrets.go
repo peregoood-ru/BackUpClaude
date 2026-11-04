@@ -14,6 +14,15 @@ import (
 // RepoPasswordKey names the repository password in the key store.
 const RepoPasswordKey = "repository-password"
 
+// Two more entries exist only while the password is being changed. Previous
+// holds the old password until the old restic key is gone, and Next holds the
+// new one from before it is added to a repository until the change is done, so
+// that a change that stopped halfway can be finished and nothing is lost.
+const (
+	PreviousPasswordKey = "repository-password-previous"
+	NextPasswordKey     = "repository-password-next"
+)
+
 // ErrNotFound means the key store has no such entry.
 var ErrNotFound = errors.New("secret not found")
 

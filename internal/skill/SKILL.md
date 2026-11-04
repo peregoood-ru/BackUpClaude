@@ -60,7 +60,7 @@ Restoring is safe by design: it never overwrites an existing file. Go in two ste
 
 ## Rules
 
-- Never run `password --show`, never read the key store, never print or ask for the repository password. If the password is needed, the user types it in their own terminal.
+- Never run `password --show` or `password change`, never read the key store, never print or ask for the repository password. If the password is needed, the user types it in their own terminal.
 - Never delete snapshots or repository files, and never run `uninstall`.
 - Do not edit `config.json` by hand. Settings change through `{{COMMAND}} setup`.
 - If a command says the copy cannot be opened, or the password is wrong, stop and tell the user what the message says.

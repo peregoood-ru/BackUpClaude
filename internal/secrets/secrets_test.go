@@ -2,7 +2,10 @@ package secrets
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/zalando/go-keyring"
@@ -105,4 +108,21 @@ func TestKeyringReportsUnavailableBackend(t *testing.T) {
 	if err == nil || errors.Is(err, ErrNotFound) {
 		t.Fatalf("got %v", err)
 	}
+}
+
+func TestWriteTempHoldsSecretUntilRemoved(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "tmp")
+	path, remove, err := WriteTemp(dir, "SECRET-VALUE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || strings.TrimSpace(string(data)) != "SECRET-VALUE" {
+		t.Fatalf("file holds %q, %v", data, err)
+	}
+	remove()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("file still there: %v", err)
+	}
+	remove() // calling it twice is harmless
 }
