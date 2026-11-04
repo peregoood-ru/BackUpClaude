@@ -608,3 +608,58 @@ func TestWarningCodesAreUnique(t *testing.T) {
 		t.Errorf("codes = %v", codes)
 	}
 }
+
+func TestOwnFoldersMoveToClaudeWhenTheProjectsAreOff(t *testing.T) {
+	home := fakehome.Copy(t, fakehome.NoDesktop)
+	own := filepath.Join(home, "мои настройки")
+	fakehome.Write(t, filepath.Join(own, "config.txt"), "x")
+	fakehome.Write(t, filepath.Join(own, "scratch", "lib.py"), "x")
+	fakehome.Write(t, filepath.Join(own, ".next", "m.js"), "x")
+	// Inside Claude's own data a folder with the name the user excluded must survive.
+	fakehome.Write(t, filepath.Join(home, ".claude", "plugins", "scratch", "keep.py"), "x")
+	fakehome.Write(t, filepath.Join(home, ".claude", "plugins", ".next", "keep.js"), "x")
+	set := func(projects bool) Inputs {
+		in := inputs(t, home)
+		in.Config.Sources.Extra = []string{"~/мои настройки", filepath.Join(home, "нет такой папки")}
+		in.Config.Sources.Exclude = []string{"scratch"}
+		in.Config.Profiles.Projects = projects
+		return in
+	}
+
+	// While the projects are on, the folders stay where they always were.
+	on := build(t, Claude, set(true))
+	for _, item := range on.Items {
+		if item.Source == SourceExtra {
+			t.Errorf("own folder in the claude plan with the projects on: %+v", item)
+		}
+	}
+	if hasWarning(on, WarnExtraMissing) {
+		t.Error("the claude plan reported the folders of the projects")
+	}
+
+	off := build(t, Claude, set(false))
+	var found bool
+	for _, item := range off.Items {
+		if item.Path == own && item.Source == SourceExtra {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("items = %+v", off.Items)
+	}
+	if !hasWarning(off, WarnExtraMissing) {
+		t.Errorf("warnings = %+v", off.Warnings)
+	}
+	if kept := survivors(t, off, own); len(kept) != 1 || kept[0] != "config.txt" {
+		t.Errorf("own folder kept = %v", kept)
+	}
+	claudePlugins := filepath.Join(home, ".claude", "plugins")
+	if kept := survivors(t, off, claudePlugins); !slices.Contains(kept, "scratch/keep.py") || !slices.Contains(kept, ".next/keep.js") {
+		t.Errorf("rules for the own folders leaked into Claude's data: %v", kept)
+	}
+	for _, pattern := range off.Excludes {
+		if (strings.HasSuffix(pattern, "scratch") || strings.HasSuffix(pattern, ".next")) && !strings.Contains(pattern, "мои настройки") {
+			t.Errorf("a name rule outside the own folders: %s", pattern)
+		}
+	}
+}

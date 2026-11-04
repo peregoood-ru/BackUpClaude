@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -77,10 +76,14 @@ func (a *app) newRootCommand() *cobra.Command {
 		},
 	})
 
-	root.AddCommand(a.stubCommands()...)
 	root.AddCommand(
 		a.newBackupCommand(),
+		a.newScheduleCommand(),
+		a.newRunCommand(),
+		a.newStatusCommand(),
+		a.newNotifyCommand(),
 		a.newListCommand(),
+		a.newRestoreCommand(),
 		a.newDoctorCommand(),
 		a.newPasswordCommand(),
 		a.newResticPasswordCommand(),
@@ -89,6 +92,13 @@ func (a *app) newRootCommand() *cobra.Command {
 		a.newSelftestCommand(),
 		a.newMeasureCommand(),
 		a.newVerifyCommand(),
+		a.newSetupCommand(),
+		a.newUninstallCommand(),
+		a.newUpdateCommand(),
+		a.newInstallCommand(),
+		a.newSkillCommand(),
+		a.newUICommand(),
+		a.newTrayCommand(),
 	)
 	localizeHelpFlag(root, a.tr.T("flag.help"))
 	return root
@@ -101,33 +111,6 @@ func localizeHelpFlag(cmd *cobra.Command, usage string) {
 	for _, child := range cmd.Commands() {
 		localizeHelpFlag(child, usage)
 	}
-}
-
-// stubCommands declares the planned commands with the stage that delivers them.
-func (a *app) stubCommands() []*cobra.Command {
-	planned := []struct {
-		name  string
-		stage int
-	}{
-		{"setup", 7},
-		{"status", 5},
-		{"restore", 6},
-		{"ui", 8},
-		{"update", 7},
-		{"uninstall", 7},
-	}
-	commands := make([]*cobra.Command, 0, len(planned))
-	for _, item := range planned {
-		commands = append(commands, &cobra.Command{
-			Use:   item.name,
-			Short: a.tr.T(fmt.Sprintf("cli.%s.short", item.name)),
-			Args:  a.noArgs,
-			RunE: func(*cobra.Command, []string) error {
-				return i18n.NotReady(item.name, item.stage)
-			},
-		})
-	}
-	return commands
 }
 
 // showGroup answers a command that only groups subcommands.

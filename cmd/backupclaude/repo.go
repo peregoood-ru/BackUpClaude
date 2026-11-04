@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,10 @@ import (
 )
 
 const selftestTag = "selftest"
+
+// backupLockWait is how long a backup waits for a cleanup that holds the whole
+// repository. The next scheduled run tries again after that.
+const backupLockWait = 20 * time.Minute
 
 // session bundles what repository commands need.
 type session struct {
@@ -47,6 +52,7 @@ func (a *app) openSession() (*session, error) {
 		config: cfg,
 		restic: &engine.Restic{
 			Binary:          binary,
+			RetryLock:       backupLockWait,
 			Repo:            cfg.Repositories.Local,
 			PasswordCommand: engine.PasswordCommand(executable, resticPasswordCommand),
 			CacheDir:        layout.CacheDir(),
@@ -95,14 +101,12 @@ type repoResult struct {
 	PasswordCreated bool   `json:"password_created"`
 }
 
-func (a *app) repoInit(ctx context.Context) error {
-	current, err := a.openSession()
-	if err != nil {
-		return err
-	}
+// ensureRepo makes sure the password and the repository exist, and creates what
+// is missing. An existing password or repository is never replaced.
+func (a *app) ensureRepo(ctx context.Context, current *session) (repoResult, error) {
 	passwordCreated, err := secrets.EnsureRepoPassword(a.deps.secrets())
 	if err != nil {
-		return err
+		return repoResult{}, err
 	}
 	result := repoResult{Repository: current.restic.Repo, PasswordCreated: passwordCreated}
 	err = current.restic.Probe(ctx)
@@ -110,10 +114,22 @@ func (a *app) repoInit(ctx context.Context) error {
 	case err == nil:
 	case engine.IsKind(err, engine.KindRepoMissing):
 		if _, err := current.restic.Init(ctx); err != nil {
-			return err
+			return result, err
 		}
 		result.Created = true
 	default:
+		return result, err
+	}
+	return result, nil
+}
+
+func (a *app) repoInit(ctx context.Context) error {
+	current, err := a.openSession()
+	if err != nil {
+		return err
+	}
+	result, err := a.ensureRepo(ctx, current)
+	if err != nil {
 		return err
 	}
 	return a.emit(result, func(w io.Writer) {

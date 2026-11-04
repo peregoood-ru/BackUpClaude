@@ -27,6 +27,15 @@ type rules struct {
 	// repos are git repositories; repoNames are left out at any depth in them.
 	repos     []string
 	repoNames []string
+	// scoped are names left out at any depth below one folder only. The claude
+	// profile uses them for the user's own folders, so that "build" or
+	// "node_modules" are dropped there and never inside Claude's own data.
+	scoped []scopedNames
+}
+
+type scopedNames struct {
+	dir   string
+	names []string
 }
 
 type anchoredName struct {
@@ -63,6 +72,11 @@ func (r *rules) patterns() []string {
 			patterns = append(patterns, filepath.Join(escapeLiteral(repo), "**", name))
 		}
 	}
+	for _, scope := range r.scoped {
+		for _, name := range scope.names {
+			patterns = append(patterns, filepath.Join(escapeLiteral(scope.dir), "**", name))
+		}
+	}
 	return patterns
 }
 
@@ -73,6 +87,12 @@ type matcher struct {
 	anchored   map[string][]string
 	literal    map[string]bool
 	repos      []string
+	scoped     []scopedKey
+}
+
+type scopedKey struct {
+	dir   string
+	names []string
 }
 
 func (r *rules) matcher() *matcher {
@@ -91,6 +111,9 @@ func (r *rules) matcher() *matcher {
 	}
 	for _, repo := range r.repos {
 		m.repos = append(m.repos, key(repo))
+	}
+	for _, scope := range r.scoped {
+		m.scoped = append(m.scoped, scopedKey{dir: key(scope.dir), names: lowered(scope.names)})
 	}
 	return m
 }
@@ -113,6 +136,11 @@ func (m *matcher) excluded(parent, name string) bool {
 	}
 	for _, repo := range m.repos {
 		if (parent == repo || strings.HasPrefix(parent, repo+"/")) && nameMatches(m.repoNames, lower) {
+			return true
+		}
+	}
+	for _, scope := range m.scoped {
+		if (parent == scope.dir || strings.HasPrefix(parent, scope.dir+"/")) && nameMatches(scope.names, lower) {
 			return true
 		}
 	}

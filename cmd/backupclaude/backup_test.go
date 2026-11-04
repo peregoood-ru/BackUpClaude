@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/config"
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
@@ -22,10 +23,17 @@ import (
 const (
 	envFakeRestic = "BACKUPCLAUDE_FAKE_RESTIC_DIR"
 	envFakeMode   = "BACKUPCLAUDE_FAKE_RESTIC_MODE"
+	// envHold makes the test binary wait instead of running tests: a program
+	// whose file is in use.
+	envHold = "BACKUPCLAUDE_TEST_HOLD"
 )
 
 // TestMain lets the test binary play restic.
 func TestMain(m *testing.M) {
+	if os.Getenv(envHold) != "" {
+		time.Sleep(time.Minute)
+		return
+	}
 	if dir := os.Getenv(envFakeRestic); dir != "" {
 		fakeRestic(dir, os.Getenv(envFakeMode))
 		return
@@ -38,14 +46,49 @@ const fakeSummary = `{"message_type":"summary","files_new":2,"files_changed":1,"
 // fakeRestic records each call and answers by command.
 func fakeRestic(dir, mode string) {
 	command := os.Args[1]
+	if mode == "typed" && !typedPasswordMatches() {
+		fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":12,"message":"Fatal: wrong password or no key found"}`)
+		os.Exit(12)
+	}
 	record, _ := json.Marshal(os.Args[1:])
 	file, _ := os.OpenFile(filepath.Join(dir, "calls.txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	fmt.Fprintf(file, "%s\n", record)
 	_ = file.Close()
 	switch command {
+	case "cat":
+		// A repository that does not exist until init has run.
+		if mode == "norepo" {
+			if _, err := os.Stat(filepath.Join(dir, "initialized")); err != nil {
+				fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":10,"message":"repository does not exist"}`)
+				os.Exit(10)
+			}
+		}
+	case "init":
+		_ = os.WriteFile(filepath.Join(dir, "initialized"), []byte("yes"), 0o600)
+		fmt.Println(`{"message_type":"initialized","id":"abcdef","repository":"x"}`)
+	case "unlock":
+		if mode == "unlock-fails" {
+			fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":10,"message":"repository does not exist"}`)
+			os.Exit(10)
+		}
+	case "forget":
+		fmt.Println(`[{"tags":["claude"],"host":"pc","paths":null,"keep":[{"short_id":"aaaaaaaa"}],"remove":[{"short_id":"bbbbbbbb"},{"short_id":"cccccccc"}],"reasons":[]}]`)
+	case "check":
+		if mode == "check-errors" {
+			fmt.Println(`{"message_type":"summary","num_errors":2,"broken_packs":null,"suggest_repair_index":false,"suggest_prune":false}`)
+			fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":1,"message":"repository contains errors"}`)
+			os.Exit(1)
+		}
+		fmt.Println(`{"message_type":"summary","num_errors":0,"broken_packs":null,"suggest_repair_index":false,"suggest_prune":false}`)
 	case "backup":
 		fakeBackup(os.Args, dir, mode)
+	case "stats":
+		fmt.Println(`{"total_size":2048000000,"total_file_count":9,"total_blob_count":30,"snapshots_count":4}`)
 	case "snapshots":
+		if mode == "snapshots-fails" {
+			fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":10,"message":"repository does not exist"}`)
+			os.Exit(10)
+		}
 		data, err := os.ReadFile(filepath.Join(dir, "snapshots.json"))
 		if err != nil {
 			fmt.Println("[]")
@@ -55,6 +98,10 @@ func fakeRestic(dir, mode string) {
 	case "ls":
 		data, _ := os.ReadFile(filepath.Join(dir, "nodes.jsonl"))
 		fmt.Print(fakeLs(string(data), os.Args[2:]))
+	case "find":
+		fakeFind(dir, os.Args[2:])
+	case "restore":
+		fakeRestore(dir, os.Args[2:])
 	}
 }
 
@@ -68,7 +115,7 @@ func fakeLs(nodes string, args []string) string {
 		case "--json":
 		case "--recursive":
 			recursive = true
-		case "--repo", "--password-command", "--cache-dir":
+		case "--repo", "--password-command", "--cache-dir", "--retry-lock", "-o":
 			i++
 		default:
 			positional = append(positional, args[i])
@@ -147,7 +194,8 @@ func newBackupWorld(t *testing.T, mode string) *backupWorld {
 	return &backupWorld{w, dir}
 }
 
-func (w *backupWorld) calls(t *testing.T) []string {
+// allCalls lists every restic call, the removal of stale locks included.
+func (w *backupWorld) allCalls(t *testing.T) []string {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(w.dir, "calls.txt"))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -157,6 +205,19 @@ func (w *backupWorld) calls(t *testing.T) []string {
 		t.Fatal(err)
 	}
 	return strings.Split(strings.TrimSpace(string(data)), "\n")
+}
+
+// calls lists the restic calls except the removal of stale locks, which runs
+// before every backup and has its own tests.
+func (w *backupWorld) calls(t *testing.T) []string {
+	t.Helper()
+	var shown []string
+	for _, call := range w.allCalls(t) {
+		if !strings.HasPrefix(call, `["unlock"`) {
+			shown = append(shown, call)
+		}
+	}
+	return shown
 }
 
 func (w *backupWorld) report(t *testing.T, r result) backupReport {

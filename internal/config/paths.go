@@ -28,6 +28,9 @@ func (l Layout) ConfigFile() string { return filepath.Join(l.Root, FileName) }
 // ProjectsFile remembers the projects found in transcripts.
 func (l Layout) ProjectsFile() string { return filepath.Join(l.Root, "projects.json") }
 
+// WatchFile remembers what the watch over Claude's folders saw last time.
+func (l Layout) WatchFile() string { return filepath.Join(l.Root, "watch.json") }
+
 // BinDir holds restic and rclone.
 func (l Layout) BinDir() string { return filepath.Join(l.Root, "bin") }
 

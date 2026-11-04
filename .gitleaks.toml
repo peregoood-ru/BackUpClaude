@@ -5,3 +5,8 @@ useDefault = true
 description = "Alphabet of the password generator: public, holds no secret"
 regexTarget = "secret"
 regexes = ['''^0123456789ABCDEFGHJKMNPQRSTVWXYZ$''']
+
+[[allowlists]]
+description = "A made-up password in a test that checks the page never shows the password"
+regexTarget = "secret"
+regexes = ['''^correct-horse-battery-staple-4321$''']

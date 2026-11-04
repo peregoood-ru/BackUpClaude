@@ -18,6 +18,8 @@ github.com/zalando/go-keyring    MIT License
 github.com/danieljoos/wincred    MIT License
 github.com/godbus/dbus           BSD 2-Clause License
 github.com/inconshreveable/mousetrap  Apache License 2.0
+fyne.io/systray                  Apache License 2.0 (https://github.com/fyne-io/systray)
+                                 The icon in the notification area (backupclaude tray, Windows).
 golang.org/x/sys, golang.org/x/term  BSD 3-Clause License
 
 Ideas and lists borrowed from other projects
@@ -29,9 +31,33 @@ claude-moove   https://github.com/paulgegenyi/claude-moove   MIT License
     manifests/*.json follows engine/README.md, checked on 2026-11-01. So does the
     list of rebuildable project folders, and the rule that build folders such as
     dist are left out only inside a git repository.
+    Moving restored data to another computer (internal/restore/mapper.go) follows
+    the rules of Set-PathMap and Convert-Text in engine/claude-moove.ps1, checked
+    on 2026-11-03: the encoded name of a transcripts folder (every character that
+    is not an ASCII letter or digit becomes a dash), paths matched without regard
+    to case and only up to the end of a folder name, the three spellings of a
+    path inside a file (as is, with doubled backslashes in JSON, with forward
+    slashes), longest path first, and transcripts left unchanged while their
+    folders are renamed. The restore refuses to put back Local Storage while
+    Claude runs, as that project closes Claude for it. Copyright (c) 2026 Claude
+    Moove contributors.
+    The way of installing with one command that downloads a release and starts it
+    (scripts/install.ps1, the install command of the README) follows the README of
+    that project, checked on 2026-11-03. No code was copied.
 
 Claude Vault   https://github.com/Krimchanin/claude-vault    MIT License
     The search for Desktop data under %LOCALAPPDATA%\Packages\*\LocalCache\Roaming,
     %LOCALAPPDATA% and %APPDATA%, recognised by what the folder holds, follows
     detect_claude_root in src-tauri/src/lib.rs, checked on 2026-11-01. Unlike that
     function, BackUpClaude keeps every folder it finds, not only the first.
+    The rule that putting restored files back only adds missing files and never
+    replaces an existing one follows the README, checked on 2026-11-03.
+    Copyright (c) 2026 Claude Vault contributors.
+
+Backrest   https://github.com/garethgeorge/backrest   GPL-3.0 License
+restic-browser   https://github.com/emuell/restic-browser   MIT License
+    The browser page (internal/ui) took from their READMEs, read on 2026-11-03, only
+    the general shape: a dashboard, a list of snapshots, restoring from a list to a
+    place the person chooses. No source file of either project was read or copied;
+    Backrest is under the GPL. The page is written from scratch in plain HTML, CSS
+    and JavaScript.

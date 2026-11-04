@@ -25,6 +25,7 @@ const CurrentVersion = 1
 const (
 	maxClaudeEveryHours   = 168
 	maxProjectsEveryHours = 720
+	maxMaintenanceHours   = 720
 )
 
 // Config is the content of config.json.
@@ -35,6 +36,58 @@ type Config struct {
 	Schedule     Schedule     `json:"schedule"`
 	Retention    Retention    `json:"retention"`
 	Sources      Sources      `json:"sources"`
+	Notify       Notify       `json:"notify"`
+	// Profiles says what is saved: Claude's data, the projects, or both.
+	Profiles Profiles `json:"profiles"`
+	// Tray switches the notification-area icon on. It is off until the person
+	// turns it on.
+	Tray Tray `json:"tray,omitzero"`
+}
+
+// Profile names, the same as the tags of the snapshots and the names of the jobs.
+const (
+	ProfileClaude   = "claude"
+	ProfileProjects = "projects"
+)
+
+// Profiles switches what is saved. A profile that is off gets no task in the
+// scheduler and no snapshot, and the status does not call it late. Snapshots
+// made earlier stay and can be restored. At least one profile must be on.
+//
+// A config.json written before this setting existed has no such field and
+// keeps both on, so an update switches nothing off in silence. A new
+// installation asks, and the wizard writes only claude unless the person
+// also wants the folders of the projects.
+type Profiles struct {
+	Claude   bool `json:"claude"`
+	Projects bool `json:"projects"`
+}
+
+// Enabled reports whether the profile is saved.
+func (p Profiles) Enabled(name string) bool {
+	switch name {
+	case ProfileClaude:
+		return p.Claude
+	case ProfileProjects:
+		return p.Projects
+	}
+	return false
+}
+
+// Names lists the profiles that are on, in the order of a full run.
+func (p Profiles) Names() []string {
+	var names []string
+	for _, name := range []string{ProfileClaude, ProfileProjects} {
+		if p.Enabled(name) {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// Tray is the optional icon in the notification area.
+type Tray struct {
+	Enabled bool `json:"enabled"`
 }
 
 // Repositories says where the two encrypted copies live.
@@ -46,10 +99,19 @@ type Repositories struct {
 	Offsite string `json:"offsite,omitempty"`
 }
 
-// Schedule sets how often each profile runs.
+// Schedule sets how often each job runs. Cleanup applies the retention rules and
+// frees space, check reads the structure of the repository.
 type Schedule struct {
 	ClaudeEveryHours   int `json:"claude_every_hours"`
 	ProjectsEveryHours int `json:"projects_every_hours"`
+	CleanupEveryHours  int `json:"cleanup_every_hours"`
+	CheckEveryHours    int `json:"check_every_hours"`
+	// SummaryEveryHours is how often the summary of the state is sent.
+	SummaryEveryHours int `json:"summary_every_hours"`
+	// RestoreTestEveryHours is how often a trial restore proves that the copies
+	// can be read back: a share of the data is checked and sample files are
+	// restored and compared with the originals. 672 hours are four weeks.
+	RestoreTestEveryHours int `json:"restore_test_every_hours"`
 }
 
 // Retention is how many snapshots of each kind to keep.
@@ -66,12 +128,40 @@ type Sources struct {
 	Exclude []string `json:"exclude,omitempty"`
 }
 
+// Notify says who is told about trouble. The secrets of a channel (the bot
+// token, the webhook address) are not here: they live in the key store.
+type Notify struct {
+	// Telegram sends to one chat through a bot. The id of the chat is personal,
+	// so it is kept here and not in the code.
+	Telegram *Telegram `json:"telegram,omitempty"`
+	Webhook  *Webhook  `json:"webhook,omitempty"`
+	// DeletionDropPercent raises an alarm when the number of transcripts falls
+	// by more than this share since the previous run.
+	DeletionDropPercent int `json:"deletion_drop_percent"`
+}
+
+// Telegram is the Telegram channel.
+type Telegram struct {
+	ChatID string `json:"chat_id"`
+}
+
+// Webhook is the webhook channel; its address is in the key store.
+type Webhook struct {
+	Enabled bool `json:"enabled"`
+}
+
 // Default returns the settings used for everything config.json leaves out.
 func Default() Config {
 	return Config{
-		Version:   CurrentVersion,
-		Schedule:  Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24},
+		Version: CurrentVersion,
+		Schedule: Schedule{
+			ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168, SummaryEveryHours: 168,
+			RestoreTestEveryHours: 672,
+		},
 		Retention: Retention{Hourly: 48, Daily: 30, Weekly: 12, Monthly: 24},
+		Notify:    Notify{DeletionDropPercent: 20},
+		// Both on: the value of a config.json that has no such field.
+		Profiles: Profiles{Claude: true, Projects: true},
 	}
 }
 
@@ -197,6 +287,19 @@ func (c *Config) validate(name string) error {
 	if v := c.Schedule.ProjectsEveryHours; v < 1 || v > maxProjectsEveryHours {
 		add("config.range", "schedule.projects_every_hours", v, 1, maxProjectsEveryHours)
 	}
+	for _, item := range []struct {
+		field string
+		value int
+	}{
+		{"schedule.cleanup_every_hours", c.Schedule.CleanupEveryHours},
+		{"schedule.check_every_hours", c.Schedule.CheckEveryHours},
+		{"schedule.summary_every_hours", c.Schedule.SummaryEveryHours},
+		{"schedule.restore_test_every_hours", c.Schedule.RestoreTestEveryHours},
+	} {
+		if item.value < 1 || item.value > maxMaintenanceHours {
+			add("config.range", item.field, item.value, 1, maxMaintenanceHours)
+		}
+	}
 	r := c.Retention
 	for _, item := range []struct {
 		field string
@@ -222,11 +325,23 @@ func (c *Config) validate(name string) error {
 			add("config.exclude.empty", i+1)
 		}
 	}
+	if !c.Profiles.Claude && !c.Profiles.Projects {
+		add("config.profiles.none")
+	}
+	if v := c.Notify.DeletionDropPercent; v < 1 || v > 100 {
+		add("config.range", "notify.deletion_drop_percent", v, 1, 100)
+	}
+	if tg := c.Notify.Telegram; tg != nil && !chatID.MatchString(tg.ChatID) {
+		add("config.notify.chat_id")
+	}
 	if len(problems) == 0 {
 		return nil
 	}
 	return &i18n.Error{Key: "config.invalid", Args: []any{name}, HintKey: "config.invalid.hint", Details: problems}
 }
+
+// chatID is a number (negative for groups) or the @name of a public channel.
+var chatID = regexp.MustCompile(`^(-?[0-9]{1,20}|@[A-Za-z0-9_]{4,64})$`)
 
 func validExtra(path string) bool {
 	return filepath.IsAbs(path) || strings.HasPrefix(path, "~")
@@ -278,3 +393,6 @@ func Save(path string, cfg *Config) error {
 	}
 	return nil
 }
+
+// ValidOffsite reports whether location can be repositories.offsite.
+func ValidOffsite(location string) bool { return validOffsite(location) }

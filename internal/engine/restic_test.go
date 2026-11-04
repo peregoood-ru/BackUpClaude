@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -32,6 +33,7 @@ func fakeRestic(mode string) {
 		"password": os.Getenv("RESTIC_PASSWORD"),
 		"repo":     os.Getenv("RESTIC_REPOSITORY"),
 		"child":    os.Getenv(EnvPasswordHelper),
+		"stdin":    readStdin(mode),
 	})
 	_ = os.WriteFile(os.Getenv(envFakeArgs), record, 0o600)
 	exitWith := func(code int, message string) {
@@ -66,6 +68,19 @@ func fakeRestic(mode string) {
 		fmt.Println(`{"time":"2026-11-01T10:00:00+03:00","paths":["/data"],"id":"deadbeef00","short_id":"deadbeef","struct_type":"snapshot","message_type":"snapshot"}`)
 		fmt.Println(`{"name":"data","type":"dir","path":"/data","size":0,"mtime":"2026-11-01T10:00:00+03:00","struct_type":"node","message_type":"node"}`)
 		fmt.Println(`{"name":"файл.txt","type":"file","path":"/data/файл.txt","size":12,"mtime":"2026-11-01T10:00:00+03:00","struct_type":"node","message_type":"node"}`)
+	case "forget":
+		fmt.Println(`[{"tags":["claude"],"host":"pc","paths":null,"keep":[{"short_id":"aaaaaaaa"},{"short_id":"bbbbbbbb"}],"remove":[{"short_id":"cccccccc"}],"reasons":[]},{"tags":["selftest"],"host":"pc","paths":null,"keep":[{"short_id":"dddddddd"}],"remove":null,"reasons":[]}]`)
+		fmt.Println(`{"message_type":"summary","snapshots_removed":1}`)
+	case "check":
+		fmt.Println(`{"message_type":"summary","num_errors":0,"broken_packs":null,"suggest_repair_index":false,"suggest_prune":false}`)
+	case "check-errors":
+		fmt.Println(`{"message_type":"summary","num_errors":2,"broken_packs":["abc"],"suggest_repair_index":true,"suggest_prune":false}`)
+		exitWith(1, "repository contains errors")
+	case "stats":
+		fmt.Println(`{"total_size":1048576,"total_file_count":9,"total_blob_count":30,"snapshots_count":4}`)
+	case "silent":
+	case "echo-stdin":
+		fmt.Println(`[]`)
 	case "snapshots-empty":
 		fmt.Println(`[]`)
 	case "missing":
@@ -98,7 +113,18 @@ func fakeClient(t *testing.T, mode string) (*Restic, string) {
 	}, record
 }
 
+// readStdin takes what the parent wrote to the fake's standard input, only in
+// the mode that tests it: the other modes have no input and must not wait.
+func readStdin(mode string) string {
+	if mode != "echo-stdin" {
+		return ""
+	}
+	data, _ := io.ReadAll(os.Stdin)
+	return string(data)
+}
+
 type call struct {
+	Stdin    string   `json:"stdin"`
 	Args     []string `json:"args"`
 	Password string   `json:"password"`
 	Repo     string   `json:"repo"`
@@ -241,7 +267,10 @@ func TestBackupWithoutSummaryIsAnError(t *testing.T) {
 
 func TestRestore(t *testing.T) {
 	r, record := fakeClient(t, "restore")
-	summary, err := r.Restore(context.Background(), RestoreOptions{Snapshot: "deadbeef", Subfolder: "/C/data", Target: "/target", Includes: []string{"/data"}})
+	summary, err := r.Restore(context.Background(), RestoreOptions{
+		Snapshot: "deadbeef", Subfolder: "/C/data", Target: "/target", Includes: []string{"/data"},
+		IncludeFile: "/list.txt", Verify: true,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +278,39 @@ func TestRestore(t *testing.T) {
 		t.Errorf("summary = %+v", summary)
 	}
 	args := strings.Join(recorded(t, record).Args, " ")
-	if !strings.HasSuffix(args, "deadbeef:/C/data --target /target --include /data") {
+	if !strings.HasSuffix(args, "deadbeef:/C/data --target /target --overwrite never --include /data --include-file /list.txt --verify") {
+		t.Errorf("args = %s", args)
+	}
+}
+
+// A password the person typed goes to restic's standard input and nowhere else:
+// not into the arguments and not into the environment.
+func TestTypedPasswordGoesToStdin(t *testing.T) {
+	r, record := fakeClient(t, "echo-stdin")
+	r.Options = []string{"rclone.program=/bin/rclone"}
+	r.UseTypedPassword("typed secret")
+	if _, err := r.Snapshots(context.Background(), ""); err != nil {
+		t.Fatal(err)
+	}
+	got := recorded(t, record)
+	joined := strings.Join(got.Args, " ")
+	if strings.Contains(joined, "typed secret") || strings.Contains(joined, "--password-command") || got.Password != "" {
+		t.Errorf("the password leaked: %+v", got)
+	}
+	if !strings.Contains(joined, "-o rclone.program=/bin/rclone") {
+		t.Errorf("args = %s", joined)
+	}
+	if got.Stdin != "typed secret\n" {
+		t.Errorf("stdin = %q", got.Stdin)
+	}
+}
+
+func TestCheckDataSubset(t *testing.T) {
+	r, record := fakeClient(t, "check")
+	if _, err := r.CheckData(context.Background(), "10%"); err != nil {
+		t.Fatal(err)
+	}
+	if args := strings.Join(recorded(t, record).Args, " "); !strings.Contains(args, "check --json") || !strings.HasSuffix(args, "--read-data-subset 10%") {
 		t.Errorf("args = %s", args)
 	}
 }

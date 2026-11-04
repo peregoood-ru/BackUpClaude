@@ -13,9 +13,15 @@ import (
 
 	"github.com/peregoood-ru/BackUpClaude/internal/config"
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
+	"github.com/peregoood-ru/BackUpClaude/internal/disk"
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
 	"github.com/peregoood-ru/BackUpClaude/internal/fakehome"
+	"github.com/peregoood-ru/BackUpClaude/internal/notify"
+	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
+	"github.com/peregoood-ru/BackUpClaude/internal/syncdir"
+	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
+	"github.com/peregoood-ru/BackUpClaude/internal/update"
 )
 
 type result struct {
@@ -51,25 +57,78 @@ type world struct {
 	home string
 	// restic replaces the installed program when set.
 	restic string
+	// sched replaces the scheduler of the OS when set.
+	sched schedule.Scheduler
+	// lowered and contained count the calls of a scheduled run.
+	lowered, contained int
+	// notify points the notification channels at a local server.
+	notify notify.Options
+	// running is what the process list shows.
+	running []sysproc.Process
+	// exe is the program file; empty means a name that is not a file.
+	exe string
+	// path, drives, syncProbe, releases and runProgram replace the OS side of
+	// the installer.
+	path       pathManager
+	drives     func() []disk.Drive
+	syncProbe  func() syncdir.Probe
+	releases   func(token string) *update.Client
+	runProgram func(ctx context.Context, program string, args ...string) ([]byte, error)
+	// opened and spawned record the pages shown and the programs started.
+	opened  chan string
+	spawned chan []string
+	// autostart replaces the start of the icon at logon.
+	autostart *fakeAutostart
 }
 
 func newWorld(t *testing.T) *world {
 	t.Helper()
 	t.Setenv(config.EnvHome, filepath.Join(t.TempDir(), "data"))
 	t.Setenv("BACKUPCLAUDE_LANG", "en")
-	return &world{store: secrets.NewMemory(), home: t.TempDir()}
+	// The OS side of the installer is replaced by default: a test must never
+	// touch the real PATH, the real scheduler or look at the real disks.
+	return &world{
+		store: secrets.NewMemory(), home: t.TempDir(),
+		sched:     &fakeScheduler{},
+		path:      &fakePath{},
+		drives:    func() []disk.Drive { return nil },
+		syncProbe: func() syncdir.Probe { return syncdir.Probe{} },
+		opened:    make(chan string, 8), spawned: make(chan []string, 8),
+		autostart: &fakeAutostart{},
+	}
 }
 
 func (w *world) deps() dependencies {
 	return dependencies{
-		secrets:        func() secrets.Store { return w.store },
-		executable:     func() (string, error) { return "backupclaude", nil },
+		secrets: func() secrets.Store { return w.store },
+		executable: func() (string, error) {
+			if w.exe != "" {
+				return w.exe, nil
+			}
+			return "backupclaude", nil
+		},
 		terminal:       func() bool { return w.terminal },
 		stdoutTerminal: func() bool { return w.terminal },
 		env: func() (discover.Env, error) {
 			return discover.Env{Home: w.home, Lookup: fakehome.Lookup(w.home)}, nil
 		},
-		resticPath: w.resticPath(),
+		resticPath:  w.resticPath(),
+		scheduler:   func(string) schedule.Scheduler { return w.sched },
+		lower:       func() error { w.lowered++; return nil },
+		contain:     func() (*sysproc.Group, error) { w.contained++; return &sysproc.Group{}, nil },
+		notify:      w.notify,
+		running:     func([]string, []string) ([]sysproc.Process, error) { return w.running, nil },
+		path:        w.path,
+		drives:      w.drives,
+		syncProbe:   w.syncProbe,
+		releases:    w.releases,
+		runProgram:  w.runProgram,
+		openBrowser: func(address string) error { w.opened <- address; return nil },
+		spawn: func(program string, args ...string) error {
+			w.spawned <- append([]string{program}, args...)
+			return nil
+		},
+		autostart: w.autostart,
 	}
 }
 
@@ -154,21 +213,6 @@ func TestPublicCommandsAreListed(t *testing.T) {
 	for _, name := range []string{resticPasswordCommand, "tools", "repo", "selftest", "measure", "verify"} {
 		if _, ok := found[name]; ok {
 			t.Errorf("%s should stay out of the public list", name)
-		}
-	}
-}
-
-func TestStubsExplainThemselves(t *testing.T) {
-	for _, name := range []string{"setup", "status", "restore", "ui", "update", "uninstall"} {
-		w := newWorld(t)
-		text := w.run(name)
-		if text.code != 3 || !strings.Contains(text.stderr, name) || !strings.Contains(text.stderr, "What to do:") {
-			t.Errorf("%s: %+v", name, text)
-		}
-		asJSON := w.run(name, "--json")
-		parsed := asJSON.envelope(t)
-		if asJSON.code != 3 || parsed.OK || parsed.Error == nil || parsed.Error.Code != "stub.not_ready" || parsed.Command != name {
-			t.Errorf("%s: %+v", name, asJSON)
 		}
 	}
 }

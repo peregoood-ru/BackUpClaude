@@ -34,7 +34,7 @@ func TestParseFillsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Schedule.ClaudeEveryHours != 1 || cfg.Schedule.ProjectsEveryHours != 24 {
+	if cfg.Schedule != (Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168, SummaryEveryHours: 168, RestoreTestEveryHours: 672}) {
 		t.Errorf("schedule defaults: %+v", cfg.Schedule)
 	}
 	if cfg.Retention != (Retention{Hourly: 48, Daily: 30, Weekly: 12, Monthly: 24}) {
@@ -189,7 +189,119 @@ func TestResolveByOSRules(t *testing.T) {
 	if err != nil {
 		t.Skipf("no home directory here: %v", err)
 	}
-	if !filepath.IsAbs(layout.Root) || filepath.Base(layout.Root) != "BackUpClaude" {
+	if !filepath.IsAbs(layout.Root) || filepath.Base(layout.Root) != dataDirName {
 		t.Errorf("root = %q", layout.Root)
+	}
+}
+
+func TestNotifySettings(t *testing.T) {
+	cfg, err := Parse([]byte(validJSON(t)), "c.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Notify.DeletionDropPercent != 20 || cfg.Notify.Telegram != nil || cfg.Notify.Webhook != nil {
+		t.Errorf("defaults: %+v", cfg.Notify)
+	}
+	withChat := strings.Replace(validJSON(t), `{"version": 1,`, `{"version": 1, "notify": {"telegram": {"chat_id": "-100123"}, "deletion_drop_percent": 35},`, 1)
+	cfg, err = Parse([]byte(withChat), "c.json")
+	if err != nil || cfg.Notify.Telegram.ChatID != "-100123" || cfg.Notify.DeletionDropPercent != 35 {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	for _, bad := range []string{
+		`"notify": {"telegram": {"chat_id": "abc def"}}`,
+		`"notify": {"telegram": {"chat_id": ""}}`,
+		`"notify": {"deletion_drop_percent": 0}`,
+		`"notify": {"deletion_drop_percent": 101}`,
+		`"notify": {"telegram": {"chat_id": "1", "token": "secret"}}`,
+	} {
+		text := strings.Replace(validJSON(t), `{"version": 1,`, `{"version": 1, `+bad+`,`, 1)
+		if _, err := Parse([]byte(text), "c.json"); err == nil {
+			t.Errorf("%s was accepted: a token must never be a setting", bad)
+		}
+	}
+}
+
+func TestTrayIsOffByDefaultAndWrittenOnlyWhenOn(t *testing.T) {
+	cfg, err := Parse([]byte(validJSON(t)), "c.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Tray.Enabled {
+		t.Fatal("the icon must be off until the person turns it on")
+	}
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Contains(string(data), "tray") {
+		t.Errorf("a default setting is written out:\n%s", data)
+	}
+	cfg.Tray.Enabled = true
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	again, err := Load(path)
+	if err != nil || !again.Tray.Enabled {
+		t.Fatalf("%+v %v", again, err)
+	}
+}
+
+func TestProfilesDefaultToBothForAnOldFile(t *testing.T) {
+	cfg, err := Parse([]byte(validJSON(t)), "c.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Profiles != (Profiles{Claude: true, Projects: true}) {
+		t.Errorf("a file without the field must keep both on: %+v", cfg.Profiles)
+	}
+	if got := cfg.Profiles.Names(); len(got) != 2 || got[0] != ProfileClaude || got[1] != ProfileProjects {
+		t.Errorf("%v", got)
+	}
+}
+
+func TestProfilesCanBeSwitchedOffButNotAll(t *testing.T) {
+	path, _ := json.Marshal(t.TempDir())
+	body := func(profiles string) []byte {
+		return []byte(fmt.Sprintf(`{"version": 1, "repositories": {"local": %s}, "profiles": %s}`, path, profiles))
+	}
+	cfg, err := Parse(body(`{"projects": false}`), "c.json")
+	if err != nil || cfg.Profiles != (Profiles{Claude: true}) || cfg.Profiles.Enabled(ProfileProjects) || !cfg.Profiles.Enabled(ProfileClaude) {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	if cfg, err = Parse(body(`{"claude": false}`), "c.json"); err != nil || cfg.Profiles != (Profiles{Projects: true}) {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	_, err = Parse(body(`{"claude": false, "projects": false}`), "c.json")
+	d := description(t, err)
+	if !strings.Contains(strings.Join(d.Details, " "), "at least one") {
+		t.Errorf("%+v", d)
+	}
+	if _, err = Parse(body(`{"everything": true}`), "c.json"); err == nil {
+		t.Error("an unknown profile was accepted")
+	}
+	if (Profiles{Claude: true}).Enabled("nothing") {
+		t.Error("an unknown name is on")
+	}
+}
+
+func TestProfilesRoundTripAndSaveRefusesNone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := Default()
+	cfg.Repositories.Local = t.TempDir()
+	cfg.Profiles = Profiles{Claude: true}
+	if err := Save(path, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	back, err := Load(path)
+	if err != nil || back.Profiles != (Profiles{Claude: true}) {
+		t.Fatalf("%+v %v", back, err)
+	}
+	cfg.Profiles = Profiles{}
+	if err := Save(path, &cfg); err == nil {
+		t.Error("a settings file that saves nothing was accepted")
+	}
+	if again, err := Load(path); err != nil || again.Profiles != (Profiles{Claude: true}) {
+		t.Errorf("the refused save changed the file: %+v %v", again, err)
 	}
 }

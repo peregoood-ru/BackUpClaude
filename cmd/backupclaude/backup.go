@@ -65,6 +65,21 @@ func profileNames(value string) ([]string, error) {
 	return nil, i18n.E("backup.unknown_profile", value, strings.Join(profile.Names(), ", ")).Hint("backup.unknown_profile.hint").Exit(exitUsage)
 }
 
+// enabledProfiles narrows the profiles of a request to those the settings keep
+// on. A full run takes only those; a request for one profile that is off is
+// answered with the reason and the way to switch it on.
+func enabledProfiles(value string, names []string, cfg *config.Config) ([]string, error) {
+	if value == profileAll {
+		return cfg.Profiles.Names(), nil
+	}
+	for _, name := range names {
+		if !cfg.Profiles.Enabled(name) {
+			return nil, i18n.E("backup.profile_off", name).Hint("backup.profile_off.hint")
+		}
+	}
+	return names, nil
+}
+
 // planInputs gathers what a plan depends on.
 func (a *app) planInputs(layout config.Layout, cfg *config.Config) (profile.Inputs, error) {
 	manifest, err := manifests.Load(runtime.GOOS)
@@ -111,16 +126,12 @@ func (a *app) backup(ctx context.Context, value string, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	in, err := a.planInputs(current.layout, current.config)
-	if err != nil {
+	if names, err = enabledProfiles(value, names, current.config); err != nil {
 		return err
 	}
-	report := backupReport{DryRun: dryRun}
-	failed := false
-	for _, name := range names {
-		result := a.runProfile(ctx, current, name, in, dryRun)
-		failed = failed || result.Status == backupFailed || result.Status == backupIncomplete
-		report.Profiles = append(report.Profiles, result)
+	report, failed, err := a.saveProfiles(ctx, current, names, dryRun)
+	if err != nil {
+		return err
 	}
 	if a.jsonOut {
 		if err := a.writeJSON(envelope{OK: !failed, Command: a.command, Data: report}); err != nil {
@@ -133,6 +144,28 @@ func (a *app) backup(ctx context.Context, value string, dryRun bool) error {
 		return errReported
 	}
 	return nil
+}
+
+// saveProfiles removes the locks a crashed run left behind and runs the
+// profiles one after another. failed is true when a profile has no complete
+// snapshot. A dry run writes nothing, so it leaves the locks alone.
+func (a *app) saveProfiles(ctx context.Context, current *session, names []string, dryRun bool) (report backupReport, failed bool, err error) {
+	in, err := a.planInputs(current.layout, current.config)
+	if err != nil {
+		return report, false, err
+	}
+	if !dryRun {
+		if err := current.restic.Unlock(ctx); err != nil {
+			return report, false, err
+		}
+	}
+	report.DryRun = dryRun
+	for _, name := range names {
+		result := a.runProfile(ctx, current, name, in, dryRun)
+		failed = failed || result.Status == backupFailed || result.Status == backupIncomplete
+		report.Profiles = append(report.Profiles, result)
+	}
+	return report, failed, nil
 }
 
 // runProfile never stops the other profile: a failure of one is reported in its
