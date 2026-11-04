@@ -17,14 +17,19 @@ BackUpClaude keeps your Claude data and your projects safe: Claude's sessions, m
 | `backupclaude --version` | Version of the application and pinned tools | works |
 | `backupclaude backup` | Take a snapshot now, `--profile claude` or `projects` for one of them, `--dry-run` to store nothing | works |
 | `backupclaude list` | Snapshots, sessions and projects | works |
+| `backupclaude status` | Whether the data is safe, in plain words: age of the newest snapshot in each copy, size, free space, last check, failures | works |
+| `backupclaude notify` | Set up where failure messages go (`telegram`, `webhook`, `test`, `remove`) | works |
 | `backupclaude setup` | Setup wizard | planned |
-| `backupclaude status` | Latest snapshots, space, errors | planned |
 | `backupclaude restore` | Bring back a session, a project or everything | planned |
 | `backupclaude ui` | Open the page in a browser | planned |
 | `backupclaude update` | Update the application | planned |
 | `backupclaude uninstall` | Remove the application, copies stay | planned |
 
 Add `--json` to any command for scripts, and `--lang ru` or `--lang en` to choose the language.
+
+## Notifications
+
+A failed scheduled job is reported to you once, a successful run never is. The same goes for a sudden fall in the number of Claude sessions (more than `notify.deletion_drop_percent` since the previous run, 20 by default) and for a Claude folder that was there and is gone, which is what a move after an update looks like. Once a week a summary arrives even when all is well. Channels are Telegram (the bot token is kept in the system key store, the chat id in `config.json`) and a webhook (its address is kept in the key store). Without a channel the program works and says nothing; `status` shows the same facts.
 
 ## What is saved
 

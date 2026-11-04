@@ -59,7 +59,13 @@ func fakeRestic(dir, mode string) {
 		fmt.Println(`{"message_type":"summary","num_errors":0,"broken_packs":null,"suggest_repair_index":false,"suggest_prune":false}`)
 	case "backup":
 		fakeBackup(os.Args, dir, mode)
+	case "stats":
+		fmt.Println(`{"total_size":2048000000,"total_file_count":9,"total_blob_count":30,"snapshots_count":4}`)
 	case "snapshots":
+		if mode == "snapshots-fails" {
+			fmt.Fprintln(os.Stderr, `{"message_type":"exit_error","code":10,"message":"repository does not exist"}`)
+			os.Exit(10)
+		}
 		data, err := os.ReadFile(filepath.Join(dir, "snapshots.json"))
 		if err != nil {
 			fmt.Println("[]")

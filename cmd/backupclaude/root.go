@@ -82,6 +82,8 @@ func (a *app) newRootCommand() *cobra.Command {
 		a.newBackupCommand(),
 		a.newScheduleCommand(),
 		a.newRunCommand(),
+		a.newStatusCommand(),
+		a.newNotifyCommand(),
 		a.newListCommand(),
 		a.newDoctorCommand(),
 		a.newPasswordCommand(),
@@ -112,7 +114,6 @@ func (a *app) stubCommands() []*cobra.Command {
 		stage int
 	}{
 		{"setup", 7},
-		{"status", 5},
 		{"restore", 6},
 		{"ui", 8},
 		{"update", 7},

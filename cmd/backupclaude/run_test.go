@@ -232,7 +232,7 @@ func (f *fakeScheduler) List() ([]schedule.Info, error) {
 	return found, nil
 }
 
-func TestScheduleInstallPlacesTheFourTasks(t *testing.T) {
+func TestScheduleInstallPlacesEveryTask(t *testing.T) {
 	w := newBackupWorld(t, "")
 	w.sched = &fakeScheduler{}
 	r := w.run("schedule", "install", "--json")
@@ -240,14 +240,14 @@ func TestScheduleInstallPlacesTheFourTasks(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 	tasks := w.sched.(*fakeScheduler).tasks
-	if len(tasks) != 4 {
+	if len(tasks) != len(schedule.JobNames()) {
 		t.Fatalf("tasks: %v", tasks)
 	}
 	if got := tasks["claude"]; got.Every != time.Hour || got.Command != "backupclaude" || !slices.Equal(got.Args, []string{"run", "--job", "claude"}) {
 		t.Errorf("claude: %+v", got)
 	}
 	var report scheduleReport
-	if err := json.Unmarshal(r.envelope(t).Data, &report); err != nil || len(report.Jobs) != 4 {
+	if err := json.Unmarshal(r.envelope(t).Data, &report); err != nil || len(report.Jobs) != len(schedule.JobNames()) {
 		t.Fatalf("%v %s", err, r.stdout)
 	}
 	for _, job := range report.Jobs {
@@ -299,7 +299,7 @@ func TestScheduleStatusSaysWhatIsMissing(t *testing.T) {
 	w := newBackupWorld(t, "")
 	w.sched = &fakeScheduler{}
 	r := w.run("schedule", "status")
-	if r.code != 0 || strings.Count(r.stdout, "not installed") != 4 {
+	if r.code != 0 || strings.Count(r.stdout, "not installed") != len(schedule.JobNames()) {
 		t.Fatalf("%+v", r)
 	}
 }
@@ -314,7 +314,7 @@ func TestScheduleRemoveKeepsTheCopies(t *testing.T) {
 	if r := w.run("schedule", "remove"); r.code != 0 {
 		t.Fatalf("%+v", r)
 	}
-	if len(f.tasks) != 0 || len(f.removed) != 4 {
+	if len(f.tasks) != 0 || len(f.removed) != len(schedule.JobNames()) {
 		t.Errorf("tasks=%v removed=%v", f.tasks, f.removed)
 	}
 	if len(w.allCalls(t)) != 0 {

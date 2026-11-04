@@ -74,6 +74,8 @@ func fakeRestic(mode string) {
 	case "check-errors":
 		fmt.Println(`{"message_type":"summary","num_errors":2,"broken_packs":["abc"],"suggest_repair_index":true,"suggest_prune":false}`)
 		exitWith(1, "repository contains errors")
+	case "stats":
+		fmt.Println(`{"total_size":1048576,"total_file_count":9,"total_blob_count":30,"snapshots_count":4}`)
 	case "silent":
 	case "snapshots-empty":
 		fmt.Println(`[]`)

@@ -85,3 +85,20 @@ func TestRetryLockOnlyForLockingCommands(t *testing.T) {
 		t.Errorf("args = %s", args)
 	}
 }
+
+func TestStatsReadsTheRawSize(t *testing.T) {
+	r, record := fakeClient(t, "stats")
+	r.RetryLock = time.Minute
+	result, err := r.Stats(context.Background())
+	if err != nil || result.Bytes != 1048576 || result.Snapshots != 4 {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	args := strings.Join(recorded(t, record).Args, " ")
+	if !strings.Contains(args, "stats --json") || !strings.Contains(args, "--mode raw-data") || !strings.Contains(args, "--retry-lock 1m0s") {
+		t.Errorf("args = %s", args)
+	}
+	silent, _ := fakeClient(t, "silent")
+	if _, err := silent.Stats(context.Background()); err == nil {
+		t.Error("an answer without a size must be an error")
+	}
+}
