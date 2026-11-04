@@ -11,7 +11,9 @@ import (
 	"golang.org/x/term"
 
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
+	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
+	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
 )
 
 // Set by the release build.
@@ -32,6 +34,8 @@ func main() {
 		},
 		stdoutTerminal: func() bool { return term.IsTerminal(int(os.Stdout.Fd())) },
 		env:            discover.CurrentEnv,
+		lower:          sysproc.Lower,
+		contain:        sysproc.Contain,
 	}
 	code := run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, deps)
 	stop()
@@ -51,6 +55,13 @@ type dependencies struct {
 	env func() (discover.Env, error)
 	// resticPath replaces the installed restic when set.
 	resticPath func() string
+	// scheduler replaces the scheduler of the OS when set.
+	scheduler func(workDir string) schedule.Scheduler
+	// lower lowers the priority of a scheduled run; contain ties the processes
+	// it starts to it. Tests leave both empty: they must not change the test
+	// process.
+	lower   func() error
+	contain func() (*sysproc.Group, error)
 }
 
 func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer, deps dependencies) int {

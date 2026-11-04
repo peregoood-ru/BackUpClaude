@@ -15,7 +15,9 @@ import (
 	"github.com/peregoood-ru/BackUpClaude/internal/discover"
 	"github.com/peregoood-ru/BackUpClaude/internal/engine"
 	"github.com/peregoood-ru/BackUpClaude/internal/fakehome"
+	"github.com/peregoood-ru/BackUpClaude/internal/schedule"
 	"github.com/peregoood-ru/BackUpClaude/internal/secrets"
+	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
 )
 
 type result struct {
@@ -51,6 +53,10 @@ type world struct {
 	home string
 	// restic replaces the installed program when set.
 	restic string
+	// sched replaces the scheduler of the OS when set.
+	sched schedule.Scheduler
+	// lowered and contained count the calls of a scheduled run.
+	lowered, contained int
 }
 
 func newWorld(t *testing.T) *world {
@@ -70,6 +76,9 @@ func (w *world) deps() dependencies {
 			return discover.Env{Home: w.home, Lookup: fakehome.Lookup(w.home)}, nil
 		},
 		resticPath: w.resticPath(),
+		scheduler:  func(string) schedule.Scheduler { return w.sched },
+		lower:      func() error { w.lowered++; return nil },
+		contain:    func() (*sysproc.Group, error) { w.contained++; return &sysproc.Group{}, nil },
 	}
 }
 

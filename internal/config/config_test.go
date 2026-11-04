@@ -34,7 +34,7 @@ func TestParseFillsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Schedule.ClaudeEveryHours != 1 || cfg.Schedule.ProjectsEveryHours != 24 {
+	if cfg.Schedule != (Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168}) {
 		t.Errorf("schedule defaults: %+v", cfg.Schedule)
 	}
 	if cfg.Retention != (Retention{Hourly: 48, Daily: 30, Weekly: 12, Monthly: 24}) {
@@ -189,7 +189,7 @@ func TestResolveByOSRules(t *testing.T) {
 	if err != nil {
 		t.Skipf("no home directory here: %v", err)
 	}
-	if !filepath.IsAbs(layout.Root) || filepath.Base(layout.Root) != "BackUpClaude" {
+	if !filepath.IsAbs(layout.Root) || filepath.Base(layout.Root) != dataDirName {
 		t.Errorf("root = %q", layout.Root)
 	}
 }

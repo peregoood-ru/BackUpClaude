@@ -28,7 +28,7 @@ BackUpClaude is a Go application with a command line and a local browser page. I
 - `--password-command` values are always quoted: restic treats a backslash outside quotes as a separator.
 - restic `--json` sends per-file errors to stderr, not stdout.
 - Exclude patterns are anchored to a saved folder, never bare names: restic matches a bare name against every part of the full path, so `build` would drop a whole project in `D:\build\app`. The rules in `internal/profile/rules.go` drive the patterns, `measure` and `verify` alike.
-- A Store installation of the desktop application runs everything it starts inside its package: `%APPDATA%` and `%LOCALAPPDATA%` are redirected to the package there and are not visible from outside. The package path comes first in the manifest. Never assume that a path seen from inside exists for a scheduled task.
+- A Store installation of the desktop application runs everything it starts inside its package: `%APPDATA%` and `%LOCALAPPDATA%` are redirected to the package there and are not visible from outside. The package path comes first in the manifest. Never assume that a path seen from inside exists for a scheduled task. For the same reason the data folder of the application on Windows is `%USERPROFILE%\.backupclaude`, never under `%APPDATA%` or `%LOCALAPPDATA%`; the profile root is not redirected, just like `~/.claude`.
 
 ## Workflow
 

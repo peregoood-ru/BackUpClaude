@@ -25,6 +25,7 @@ const CurrentVersion = 1
 const (
 	maxClaudeEveryHours   = 168
 	maxProjectsEveryHours = 720
+	maxMaintenanceHours   = 720
 )
 
 // Config is the content of config.json.
@@ -46,10 +47,13 @@ type Repositories struct {
 	Offsite string `json:"offsite,omitempty"`
 }
 
-// Schedule sets how often each profile runs.
+// Schedule sets how often each job runs. Cleanup applies the retention rules and
+// frees space, check reads the structure of the repository.
 type Schedule struct {
 	ClaudeEveryHours   int `json:"claude_every_hours"`
 	ProjectsEveryHours int `json:"projects_every_hours"`
+	CleanupEveryHours  int `json:"cleanup_every_hours"`
+	CheckEveryHours    int `json:"check_every_hours"`
 }
 
 // Retention is how many snapshots of each kind to keep.
@@ -70,7 +74,7 @@ type Sources struct {
 func Default() Config {
 	return Config{
 		Version:   CurrentVersion,
-		Schedule:  Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24},
+		Schedule:  Schedule{ClaudeEveryHours: 1, ProjectsEveryHours: 24, CleanupEveryHours: 168, CheckEveryHours: 168},
 		Retention: Retention{Hourly: 48, Daily: 30, Weekly: 12, Monthly: 24},
 	}
 }
@@ -196,6 +200,17 @@ func (c *Config) validate(name string) error {
 	}
 	if v := c.Schedule.ProjectsEveryHours; v < 1 || v > maxProjectsEveryHours {
 		add("config.range", "schedule.projects_every_hours", v, 1, maxProjectsEveryHours)
+	}
+	for _, item := range []struct {
+		field string
+		value int
+	}{
+		{"schedule.cleanup_every_hours", c.Schedule.CleanupEveryHours},
+		{"schedule.check_every_hours", c.Schedule.CheckEveryHours},
+	} {
+		if item.value < 1 || item.value > maxMaintenanceHours {
+			add("config.range", item.field, item.value, 1, maxMaintenanceHours)
+		}
 	}
 	r := c.Retention
 	for _, item := range []struct {

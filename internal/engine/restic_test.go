@@ -66,6 +66,15 @@ func fakeRestic(mode string) {
 		fmt.Println(`{"time":"2026-11-01T10:00:00+03:00","paths":["/data"],"id":"deadbeef00","short_id":"deadbeef","struct_type":"snapshot","message_type":"snapshot"}`)
 		fmt.Println(`{"name":"data","type":"dir","path":"/data","size":0,"mtime":"2026-11-01T10:00:00+03:00","struct_type":"node","message_type":"node"}`)
 		fmt.Println(`{"name":"файл.txt","type":"file","path":"/data/файл.txt","size":12,"mtime":"2026-11-01T10:00:00+03:00","struct_type":"node","message_type":"node"}`)
+	case "forget":
+		fmt.Println(`[{"tags":["claude"],"host":"pc","paths":null,"keep":[{"short_id":"aaaaaaaa"},{"short_id":"bbbbbbbb"}],"remove":[{"short_id":"cccccccc"}],"reasons":[]},{"tags":["selftest"],"host":"pc","paths":null,"keep":[{"short_id":"dddddddd"}],"remove":null,"reasons":[]}]`)
+		fmt.Println(`{"message_type":"summary","snapshots_removed":1}`)
+	case "check":
+		fmt.Println(`{"message_type":"summary","num_errors":0,"broken_packs":null,"suggest_repair_index":false,"suggest_prune":false}`)
+	case "check-errors":
+		fmt.Println(`{"message_type":"summary","num_errors":2,"broken_packs":["abc"],"suggest_repair_index":true,"suggest_prune":false}`)
+		exitWith(1, "repository contains errors")
+	case "silent":
 	case "snapshots-empty":
 		fmt.Println(`[]`)
 	case "missing":
