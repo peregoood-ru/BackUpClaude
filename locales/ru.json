@@ -1034,7 +1034,7 @@
   "setup.projects_now_off": "--projects-now требует, чтобы папки проектов были среди сохраняемого",
   "setup.projects_now_off.hint": "Добавьте --save all или уберите --projects-now.",
   "setup.q.profiles": "Что сохранять?",
-  "setup.profiles.option_claude": "Только данные Claude (сессии, чаты, настройки) - по умолчанию",
+  "setup.profiles.option_claude": "Только данные Claude (сессии, чаты, настройки) и папки, добавленные вручную - по умолчанию",
   "setup.profiles.option_all": "Данные Claude и папки ваших проектов",
   "setup.profiles.option_projects": "Только папки ваших проектов",
   "setup.profiles.current": "Сейчас сохраняется: %s",
@@ -1051,7 +1051,7 @@
   "ui.settings.profiles_hint": "Хотя бы одно должно остаться включённым. Изменение действует сразу и правит задачи в планировщике. Прежние снимки остаются и восстанавливаются.",
   "ui.settings.profiles_saved": "Сохранено. Задачи в планировщике обновлены.",
   "ui.settings.profile.claude": "Данные Claude",
-  "ui.settings.profile.claude_hint": "сессии, чаты, контекст, настройки",
+  "ui.settings.profile.claude_hint": "сессии, чаты, контекст, настройки и ваши папки, пока папки проектов выключены",
   "ui.settings.profile.projects": "Папки проектов",
-  "ui.settings.profile.projects_hint": "рабочие папки ваших проектов и папки, добавленные вручную"
+  "ui.settings.profile.projects_hint": "рабочие папки ваших проектов из сессий и папки, добавленные вручную"
 }

@@ -1034,7 +1034,7 @@
   "setup.projects_now_off": "--projects-now needs the project folders to be among what is saved",
   "setup.projects_now_off.hint": "Add --save all, or leave --projects-now out.",
   "setup.q.profiles": "What to save?",
-  "setup.profiles.option_claude": "Only Claude's data (sessions, chats, settings) - the default",
+  "setup.profiles.option_claude": "Only Claude's data (sessions, chats, settings) and the folders you added by hand - the default",
   "setup.profiles.option_all": "Claude's data and the folders of your projects",
   "setup.profiles.option_projects": "Only the folders of your projects",
   "setup.profiles.current": "Now saved: %s",
@@ -1051,7 +1051,7 @@
   "ui.settings.profiles_hint": "At least one must stay on. The change applies at once and edits the tasks in the scheduler. Snapshots made earlier are kept and can be restored.",
   "ui.settings.profiles_saved": "Saved. The tasks in the scheduler were updated.",
   "ui.settings.profile.claude": "Claude's data",
-  "ui.settings.profile.claude_hint": "sessions, chats, context, settings",
+  "ui.settings.profile.claude_hint": "sessions, chats, context, settings, and your own folders while the project folders are off",
   "ui.settings.profile.projects": "Project folders",
-  "ui.settings.profile.projects_hint": "working folders of your projects and the folders you added yourself"
+  "ui.settings.profile.projects_hint": "the working folders of your projects found in your sessions, and the folders you added yourself"
 }

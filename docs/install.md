@@ -64,7 +64,7 @@ At the end the wizard explains how to write the password on paper. At a terminal
 
 ### What to save
 
-The wizard asks: **1. Only Claude's data** (the default) or **2. Claude's data and the folders of your projects**. Claude's data are the sessions, chats, context and settings. Project folders are the working folders found in the transcripts and the folders you added to `sources.extra`; if your projects already live in a synced or backed-up place, leave them out. The same switch is in `config.json`:
+The wizard asks: **1. Only Claude's data** (the default) or **2. Claude's data and the folders of your projects**. Claude's data are the sessions, chats, context and settings. Project folders are the working folders found in the transcripts; the folders you added to `sources.extra` go with them while they are on, and move to Claude's data when they are off, so a folder you added by hand is never dropped without a word. If your projects already live in a synced or backed-up place, leave them out. The same switch is in `config.json`:
 
 ```json
 "profiles": { "claude": true, "projects": false }

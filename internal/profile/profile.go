@@ -182,8 +182,51 @@ func buildClaude(in Inputs) *Plan {
 			plan.lockedOK = append(plan.lockedOK, key(filepath.Join(root.Path, filepath.FromSlash(name))))
 		}
 	}
+	if !in.Config.Profiles.Projects {
+		plan.addOwnFolders(in)
+	}
 	plan.finish()
 	return plan
+}
+
+// addOwnFolders puts the user's own folders (sources.extra) into the claude
+// profile. They belong to the projects profile while it is on, exactly as
+// before the choice of profiles existed; when the person switches the projects
+// off, the folders added by hand must not stop being saved without a word, so
+// they move here. The rules for them are the ones of the projects, but they
+// apply below those folders only, never inside Claude's own data.
+func (p *Plan) addOwnFolders(in Inputs) {
+	if len(in.Config.Sources.Extra) == 0 {
+		return
+	}
+	excludes := splitExcludes(p, in)
+	var own []candidate
+	for _, extra := range in.Config.Sources.Extra {
+		path, ok := in.Env.Expand(extra)
+		if !ok || !isThere(path) {
+			p.warn(WarnExtraMissing, extra)
+			continue
+		}
+		own = append(own, candidate{filepath.Clean(path), SourceExtra})
+	}
+	before := len(p.rules.roots)
+	p.addCandidates(own)
+	roots := p.rules.roots[before:]
+	names := append(append([]string{}, in.Manifest.Projects.Exclude...), excludes.names...)
+	for _, root := range roots {
+		p.rules.scoped = append(p.rules.scoped, scopedNames{dir: root, names: names})
+	}
+	p.rules.literal = append(p.rules.literal, excludes.paths...)
+	p.rules.anchored = append(p.rules.anchored, excludes.anchored...)
+	if len(roots) == 0 {
+		return
+	}
+	p.rules.literal = append(p.rules.literal, in.Config.Repositories.Local, in.Layout.Root)
+	p.rules.repoNames = in.Manifest.Projects.ExcludeInGit
+	matcher := p.rules.matcher()
+	for _, root := range roots {
+		p.rules.repos = append(p.rules.repos, findRepos(root, matcher)...)
+	}
 }
 
 func buildProjects(in Inputs) (*Plan, error) {
