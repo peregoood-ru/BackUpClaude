@@ -37,6 +37,14 @@ type Config struct {
 	Retention    Retention    `json:"retention"`
 	Sources      Sources      `json:"sources"`
 	Notify       Notify       `json:"notify"`
+	// Tray switches the notification-area icon on. It is off until the person
+	// turns it on.
+	Tray Tray `json:"tray,omitzero"`
+}
+
+// Tray is the optional icon in the notification area.
+type Tray struct {
+	Enabled bool `json:"enabled"`
 }
 
 // Repositories says where the two encrypted copies live.

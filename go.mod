@@ -3,6 +3,7 @@ module github.com/peregoood-ru/BackUpClaude
 go 1.27.0
 
 require (
+	fyne.io/systray v1.12.2
 	github.com/spf13/cobra v1.10.2
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/sys v0.49.0

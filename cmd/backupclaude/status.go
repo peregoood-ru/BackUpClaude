@@ -216,6 +216,12 @@ func (a *app) buildStatus(ctx context.Context, current *session, window time.Dur
 	if report.FailingJobs == nil {
 		report.FailingJobs = []jobFailure{}
 	}
+	if report.Issues == nil {
+		report.Issues = []string{}
+	}
+	if report.Disks == nil {
+		report.Disks = []diskStatus{}
+	}
 	if report.Alerts == nil {
 		report.Alerts = []watch.Alert{}
 	}

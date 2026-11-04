@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>BackUpClaude</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#1f5fd6"/><path d="M9 17.5a7 7 0 0 1 13.4-2.6A4.6 4.6 0 0 1 22 24H11a4 4 0 0 1-2-6.5z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><path d="M16 14.5v6m0 0l-2.3-2.3M16 20.5l2.3-2.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>BackUpClaude <small id="version"></small></span>
+  </div>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+  <div class="tools">
+    <select id="lang" aria-label="Language"></select>
+    <button class="btn small" id="quit" type="button"></button>
+  </div>
+</header>
+<main id="view" aria-live="polite"></main>
+<div id="overlay"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -18,6 +18,7 @@ import (
 	"github.com/peregoood-ru/BackUpClaude/internal/selfinstall"
 	"github.com/peregoood-ru/BackUpClaude/internal/syncdir"
 	"github.com/peregoood-ru/BackUpClaude/internal/sysproc"
+	"github.com/peregoood-ru/BackUpClaude/internal/tray"
 	"github.com/peregoood-ru/BackUpClaude/internal/update"
 )
 
@@ -49,6 +50,7 @@ func main() {
 		},
 		lower:   sysproc.Lower,
 		contain: sysproc.Contain,
+		spawn:   sysproc.StartDetached,
 	}
 	code := run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr, deps)
 	stop()
@@ -91,6 +93,13 @@ type dependencies struct {
 	syncProbe func() syncdir.Probe
 	// releases makes the client of the release API; nil means GitHub.
 	releases func(token string) *update.Client
+	// openBrowser shows an address in the browser; nil means the default browser.
+	openBrowser func(address string) error
+	// spawn starts a program that outlives this one (the page from the icon, the
+	// icon itself); nil starts nothing.
+	spawn func(program string, args ...string) error
+	// autostart is the start of the icon at logon; nil means the real one.
+	autostart tray.Autostart
 	// runProgram starts a program and returns what it printed; nil means the OS.
 	runProgram func(ctx context.Context, program string, args ...string) ([]byte, error)
 }

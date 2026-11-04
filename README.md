@@ -58,7 +58,8 @@ The program is not signed with a code-signing certificate yet. If you download t
 | `backupclaude uninstall` | Remove the tasks and the programs. The copies and the password stay |
 | `backupclaude install` | Copy the program into your folder and add it to the PATH (the install command runs it) |
 | `backupclaude skill` | Install or remove the `/backup` skill for Claude Code |
-| `backupclaude ui` | Open the page in a browser (planned) |
+| `backupclaude ui` | Open the page in your browser: state with a **Save now** button, snapshots, restore, settings. It ends when you close the tab. See [docs/ui.md](docs/ui.md) |
+| `backupclaude tray` | Show a status icon in the notification area (off by default; `--enable` starts it at login) |
 
 Add `--json` to any command for scripts, and `--lang ru` or `--lang en` to choose the language. More: [docs/install.md](docs/install.md).
 
@@ -72,6 +73,10 @@ Your home folder and temporary folders are not treated as projects. In `sources.
 ## Notifications
 
 A failed scheduled job is reported to you once, a successful run never is. The same goes for a sudden fall in the number of Claude sessions (more than `notify.deletion_drop_percent` since the previous run, 20 by default) and for a Claude folder that was there and is gone. Once a week a summary arrives even when all is well. Channels are Telegram (the bot token is kept in the system key store, the chat id in `config.json`) and a webhook (its address is kept in the key store). Without a channel the program works and says nothing; `status` shows the same facts.
+
+## The page in the browser
+
+If you would rather not use a command line, run `backupclaude ui`: a small page opens in your browser and shows at once whether the data is safe. From it you can save now, look through the snapshots, bring back a session or a project, and change the settings. It works only from your computer, through a one-time link, never shows the password, and ends when you close the tab. Details and screenshots: [docs/ui.md](docs/ui.md).
 
 ## Restore
 

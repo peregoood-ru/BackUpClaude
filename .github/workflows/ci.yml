@@ -35,6 +35,11 @@ jobs:
           go-version-file: go.mod
       - name: go vet
         run: go vet ./...
+      - name: Syntax of the page script
+        # The page is plain JavaScript embedded in the program; a typo in it
+        # leaves a blank page, which no Go test notices.
+        if: matrix.os == 'ubuntu-latest'
+        run: node --check internal/ui/web/app.js
       - name: go test
         run: go test ./...
       - name: Build and run doctor
